@@ -1,0 +1,91 @@
+:root {
+    --primary: #D3BCA5;
+    --primary-dark: #bba38a;
+    --bg: #f8f9fa;
+    --text-main: #2d2d2d;
+    --text-muted: #717171;
+    --white: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+body { 
+    font-family: 'Inter', sans-serif; 
+    background-color: var(--bg); 
+    margin: 0; 
+    color: var(--text-main); 
+}
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+/* Navbar */
+.navbar { background: var(--white); padding: 15px 0; border-bottom: 1px solid #eee; }
+.nav-content { display: flex; justify-content: space-between; align-items: center; }
+.brand { font-size: 1.2rem; letter-spacing: 1px; color: var(--primary-dark); }
+.status-badge { font-size: 0.7rem; background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; font-weight: 600; }
+
+/* Busca */
+.search-section { background: var(--white); padding: 30px 0; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+#searchBar {
+    width: 100%; padding: 16px 24px; border-radius: 12px;
+    border: 2px solid #f0f0f0; font-size: 1rem; transition: all 0.3s ease;
+}
+#searchBar:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 4px rgba(211, 188, 165, 0.2); }
+
+/* Grid e Cards */
+.catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
+    padding-bottom: 50px;
+}
+
+.card {
+    background: var(--white); border-radius: 16px; overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid #eee; position: relative;
+}
+.card:hover { transform: translateY(-5px); box-shadow: 0 12px 25px rgba(0,0,0,0.1); }
+
+.card-img-wrapper { position: relative; width: 100%; height: 220px; overflow: hidden; background: #f0f0f0; }
+.card img { width: 100%; height: 100%; object-fit: cover; }
+
+.badge-qty {
+    position: absolute; top: 12px; right: 12px;
+    background: rgba(255, 255, 255, 0.9); padding: 5px 12px;
+    border-radius: 8px; font-weight: 600; font-size: 0.8rem; color: var(--text-main);
+    backdrop-filter: blur(4px); border: 1px solid var(--primary);
+}
+
+.card-content { padding: 20px; }
+.code-tag { font-size: 0.7rem; font-weight: 600; color: var(--primary-dark); text-transform: uppercase; letter-spacing: 1px; }
+.product-name { font-size: 1.1rem; margin: 8px 0; font-weight: 600; display: block; }
+.bath-info { font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+.bath-info::before { content: ""; width: 8px; height: 8px; background: var(--primary); border-radius: 50%; display: inline-block; }
+
+/* Mobile */
+@media (max-width: 600px) {
+    .catalog-grid { grid-template-columns: 1fr; } /* No mobile, card único por linha facilita conferência */
+    .card { display: flex; height: 140px; }
+    .card-img-wrapper { width: 120px; height: 100%; }
+    .badge-qty { top: auto; bottom: 8px; right: 8px; font-size: 0.7rem; }
+    .card-content { padding: 12px; flex: 1; }
+    .product-name { font-size: 0.95rem; margin: 4px 0; }
+}
+
+/* Adicione ou substitua estas partes no seu style.css */
+.card-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* 'contain' evita cortar a joia/produto */
+    background: #fff;
+}
+
+.product-name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    height: 2.4em; /* Mantém altura fixa para alinhar os cards */
+    line-height: 1.2em;
+}
