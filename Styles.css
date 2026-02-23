@@ -1,5 +1,6 @@
 :root {
-    --primary: #D4AF37; /* Dourado Joalheria */
+    --primary: #D4AF37;
+    /* Dourado Joalheria */
     --primary-dark: #AA8B2C;
     --dark: #1a1a1a;
     --light: #f8f9fa;
@@ -18,7 +19,8 @@
 }
 
 /* Ajuste crítico para evitar scroll lateral fantasma */
-html, body {
+html,
+body {
     overflow-x: hidden;
     width: 100%;
     background-color: #f4f4f7;
@@ -73,12 +75,16 @@ html, body {
 .tabs-content {
     display: flex;
     transition: transform 0.3s ease-out;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch; /* Melhora o deslize no iPhone */
 }
 
 .tab-panel {
-    width: 100%; /* Largura padrão */
+    width: 100%;
+    /* Largura padrão */
     flex-shrink: 0;
-    padding-bottom: 40px; /* Espaço para o final da página */
+    /* Espaço para o final da página */
+    padding: 0 15px 80px 15px; /* Espaço nas laterais e no fundo para não bater na borda */
 }
 
 /* --- Dashboard & Stats --- */
@@ -118,7 +124,9 @@ canvas {
 }
 
 /* --- Formulários --- */
-input, select, button {
+input,
+select,
+button {
     padding: 12px;
     border: 1px solid #ddd;
     border-radius: 8px;
@@ -126,16 +134,53 @@ input, select, button {
     transition: 0.3s;
 }
 
-input:focus, select:focus {
+input:focus,
+select:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
 }
 
+/* Ajuste de Filtros Responsivos */
 .filter-section {
     background: white;
-    padding: 20px;
+    padding: 15px;
     border-radius: 12px;
+    margin-bottom: 20px;
     box-shadow: var(--shadow);
+
+    /* Mudança para flex-wrap para não cortar */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.filter-section>div {
+    flex: 1 1 140px;
+    /* Cresce e diminui, com base mínima de 140px */
+    min-width: 0;
+    /* Evita que o conteúdo force a largura */
+}
+
+.filter-section input,
+.filter-section select {
+    width: 100%;
+    /* Ocupa todo o espaço do seu mini-container */
+    height: 40px;
+    font-size: 0.85rem;
+}
+
+.filter-section button {
+    flex: 1 1 100%;
+    /* Botão ocupa a largura toda em telas muito pequenas */
+    height: 45px;
+    margin-top: 5px;
+}
+
+/* Para telas um pouco maiores, o botão volta ao tamanho normal */
+@media (min-width: 600px) {
+    .filter-section button {
+        flex: 0 1 150px;
+    }
 }
 
 /* --- Busca Estilizada --- */
@@ -207,8 +252,10 @@ input:focus, select:focus {
 /* --- Login Overlay --- */
 .login-overlay {
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     background: var(--dark);
     display: flex;
     justify-content: center;
@@ -242,8 +289,10 @@ input:focus, select:focus {
 /* --- Modais --- */
 .modal {
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     background: rgba(0, 0, 0, 0.6);
     display: none;
     justify-content: center;
@@ -260,7 +309,9 @@ input:focus, select:focus {
 }
 
 /* --- Utilitários --- */
-.clickable { cursor: pointer; }
+.clickable {
+    cursor: pointer;
+}
 
 .btn-logout {
     background: none;
@@ -286,12 +337,13 @@ h2 {
     .nav-content {
         padding: 0 10px;
     }
-    
+
     .brand {
         font-size: 1.2rem;
     }
 
     .grid-stats {
-        grid-template-columns: 1fr 1fr; /* Duas colunas em celulares médios */
+        grid-template-columns: 1fr 1fr;
+        /* Duas colunas em celulares médios */
     }
 }

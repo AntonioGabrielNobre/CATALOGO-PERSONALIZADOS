@@ -259,9 +259,11 @@ window.updateStatus = async (id, newStatus) => {
 };
 
 window.openOrderModal = (codigo, nome, banho) => {
-    document.getElementById('modalProductName').innerText = `${nome} (${banho})`;
-    document.getElementById('m_codigo').value = codigo;
-    document.getElementById('orderModal').style.display = 'flex';
+    // Exibe um alerta simples e moderno
+    alert(`Lançamento de Pedidos (Em Breve)\n\nO item ${nome} está disponível para consulta, mas o lançamento automático via sistema será liberado na próxima atualização.`);
+
+    // Opcional: Se quiser que o modal nem tente abrir, basta deixar só o alerta.
+    // O formulário de cadastro de pedidos fica assim inativo por enquanto.
 };
 
 window.closeModal = () => document.getElementById('orderModal').style.display = 'none';
@@ -308,12 +310,12 @@ function initSwipe() {
 function switchTab(index) {
     const wrapper = document.getElementById('swipeWrapper');
     if (!wrapper) return;
-    
+
     // index 0 = 0%, index 1 = -50%
-    const offset = index * -50; 
+    const offset = index * -50;
     wrapper.style.transform = `translateX(${offset}%)`;
     currentTab = index;
-    
+
     window.scrollTo(0, 0); // Volta pro topo ao trocar de aba
 }
 
