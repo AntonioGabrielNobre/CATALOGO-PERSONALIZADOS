@@ -76,7 +76,8 @@ body {
     display: flex;
     transition: transform 0.3s ease-out;
     scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch; /* Melhora o deslize no iPhone */
+    -webkit-overflow-scrolling: touch;
+    /* Melhora o deslize no iPhone */
 }
 
 .tab-panel {
@@ -84,7 +85,8 @@ body {
     /* Largura padrão */
     flex-shrink: 0;
     /* Espaço para o final da página */
-    padding: 0 15px 80px 15px; /* Espaço nas laterais e no fundo para não bater na borda */
+    padding: 0 15px 80px 15px;
+    /* Espaço nas laterais e no fundo para não bater na borda */
 }
 
 /* --- Dashboard & Stats --- */
@@ -154,11 +156,37 @@ select:focus {
     gap: 12px;
 }
 
-.filter-section>div {
-    flex: 1 1 140px;
-    /* Cresce e diminui, com base mínima de 140px */
+/* Correção específica para inputs de data em dispositivos móveis */
+input[type="date"] {
+    -webkit-appearance: none;
+    /* Remove estilos padrão do Safari/Chrome iOS */
+    -moz-appearance: none;
+    appearance: none;
     min-width: 0;
-    /* Evita que o conteúdo force a largura */
+    /* Evita que o campo "empurre" o container */
+    width: 100%;
+    /* Garante que ocupe o espaço do flex-item */
+    background-color: white;
+    /* Evita transparência estranha em alguns Androids */
+    display: inline-flex;
+    /* Alinha melhor o texto e o ícone interno */
+    align-items: center;
+}
+
+/* Ajuste no container do filtro para não permitir "overflow" de datas */
+.filter-section>div {
+    flex: 1 1 calc(50% - 10px);
+    /* Garante no mínimo 2 campos por linha em telas pequenas */
+    min-width: 140px;
+    /* Impede que fique pequeno demais a ponto de quebrar o texto */
+    max-width: 100%;
+}
+
+@media (max-width: 400px) {
+    .filter-section>div {
+        flex: 1 1 100%;
+        /* Em celulares muito estreitos, um filtro por linha */
+    }
 }
 
 .filter-section input,
