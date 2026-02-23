@@ -1,32 +1,116 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CATALOGO PERSONALIZADOS</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Madean Joias - Sistema</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="Styles.css">
 </head>
+
 <body>
-    <nav class="navbar">
-        <div class="container nav-content">
+
+    <div id="loginScreen" class="login-overlay">
+        <div class="login-box">
             <span class="brand">Madean <strong>joias</strong></span>
-            <div id="statusIndicator" class="status-badge">Sincronizado</div>
+            <h2>Acesso ao Sistema</h2>
+            <input type="text" id="userLogin" placeholder="Usuário">
+            <input type="password" id="userPass" placeholder="Senha">
+            <button onclick="handleLogin()" id="btnLogin">Entrar</button>
         </div>
-    </nav>
+    </div>
 
-    <header class="search-section">
-        <div class="container">
-            <input type="text" id="searchBar" placeholder="Pesquisar por código, nome ou banho...">
-        </div>
-    </header>
-
-    <main class="container">
-        <div id="catalog" class="catalog-grid">
+    <div id="mainApp" style="display: none; overflow-x: hidden;">
+        <nav class="navbar">
+            <div class="container nav-content">
+                <span class="brand">Madean <strong>joias</strong></span>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div id="statusIndicator" class="status-badge">Sincronizado</div>
+                    <button onclick="logout()" class="btn-logout">Sair</button>
+                </div>
             </div>
-    </main>
+        </nav>
 
+        <div id="swipeWrapper" class="tabs-content">
+            
+            <div id="adminPanel" class="tab-panel container" style="margin-top: 20px;">
+                <div class="filter-section"
+                    style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end; box-shadow: var(--shadow);">
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 600;">Data Inicial</label>
+                        <input type="date" id="filterStart" style="width: 100%;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 600;">Data Final</label>
+                        <input type="date" id="filterEnd" style="width: 100%;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 600;">Filtrar Loja</label>
+                        <select id="filterStore" style="width: 100%;">
+                            <option value="all">Todas as Lojas</option>
+                        </select>
+                    </div>
+                    <button onclick="applyFilters()"
+                        style="background: var(--dark); color: white; height: 45px; border-radius: 8px; cursor: pointer;">Aplicar Filtros</button>
+                </div>
+
+                <section class="grid-stats">
+                    <div class="stat-card">
+                        <h3>Pedidos no Período</h3>
+                        <p id="stat-total">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Aguardando Produção</h3>
+                        <p id="stat-pendente">0</p>
+                    </div>
+                </section>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow); min-height: 300px;">
+                        <h4 style="margin-bottom: 15px;">Status dos Pedidos</h4>
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow); min-height: 300px;">
+                        <h4 style="margin-bottom: 15px;">Pedidos por Loja</h4>
+                        <canvas id="storeChart"></canvas>
+                    </div>
+                </div>
+
+                <h3>Gerenciar Pedidos</h3>
+                <div id="ordersList" class="catalog-grid"></div>
+            </div>
+
+            <div id="catalogPanel" class="tab-panel container" style="margin-top: 20px;">
+                <header class="search-wrapper"> 
+                    <input type="text" id="searchBar" placeholder="Pesquisar por nome ou código da peça...">
+                </header>
+                <h2>Catálogo de Estoque</h2>
+                <div id="catalog" class="catalog-grid"></div>
+            </div>
+
+        </div> </div>
+
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <h3>Lançar Pedido: <span id="modalProductName"></span></h3>
+            <form id="quickOrderForm">
+                <input type="hidden" id="m_codigo">
+                <input type="text" id="m_cliente" placeholder="Nome do Cliente" required>
+                <input type="text" id="m_loja" placeholder="Loja/Vendedor" required>
+                <input type="number" id="m_qtd" value="1" min="1" required>
+                <div class="modal-buttons">
+                    <button type="button" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" style="background: #D4AF37; color: white;">Confirmar Pedido</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script src="Script.js"></script>
 </body>
+
 </html>
