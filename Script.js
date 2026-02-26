@@ -23,6 +23,29 @@ function convertDriveLink(url) {
 async function handleLogin() {
     const user = document.getElementById('userLogin').value;
     const pass = document.getElementById('userPass').value;
+    const btnManual = document.getElementById('btnNovoManual');
+
+    if (user === 'admin') {
+        // Se for o admin, o botão fica disponível
+        btnManual.setAttribute('data-admin-only', 'true');
+        if (loginSucesso) {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+
+            // FORÇAR O BOTÃO A APARECER NO INÍCIO:
+            const btnManual = document.getElementById('btnNovoManual');
+            if (btnManual) {
+                btnManual.style.display = 'block'; // Mostra logo de cara
+            }
+
+            // Garante que comece no Admin (index 0)
+            switchTab(0);
+        }
+    } else {
+        // Se for vendedora, o botão é removido completamente
+        if (btnManual) btnManual.remove();
+    }
+
     try {
         const { data, error } = await supabaseClient
             .from('logins')
@@ -406,21 +429,38 @@ function renderStock(items) {
     catalog.innerHTML = items.map(item => {
         const imgUrl = convertDriveLink(item.imagem_url) || 'https://placehold.jp/200x200.png';
 
-        // CORREÇÃO: Chama openExpandedModal com os parâmetros certos
+        // Lógica de cores para o estoque
+        const qtdCor = item.quantidade <= 0 ? 'var(--danger)' : '#333';
+        const qtdTexto = item.quantidade > 0 ? `${item.quantidade} un` : 'Esgotado';
+
+        // --- NOVA LÓGICA DE COR DE FUNDO POR BANHO ---
+        const banhoLimpo = (item.banho || "").toUpperCase().trim();
+        let bgCor = "#eee"; // Cor padrão caso não seja ouro nem prata
+
+        if (banhoLimpo === "OURO") {
+            bgCor = "linear-gradient(135deg, #FFD700, #DAA520)"; // Dourado
+        } else if (banhoLimpo === "PRATA") {
+            bgCor = "linear-gradient(135deg, #C0C0C0, #E8E8E8)"; // Prata
+        }
+
         return `
-        <div class="card clickable" onclick="openExpandedModal('${item.codigo}', '${item.nome}', '${item.banho}', '${imgUrl}')">
+        <div class="card clickable" onclick="openExpandedModal('${item.codigo}', '${item.nome}', '${item.banho}', '${imgUrl}', '${item.quantidade}')">
             <div class="card-img-wrapper">
                 <img src="${imgUrl}" loading="lazy">
-                <div class="badge-banho">${item.banho || '---'}</div>
+                <div class="badge-banho" style="background: ${bgCor}; color: ${banhoLimpo === 'OURO' ? '#000' : '#333'}; font-weight: bold;">
+                    ${item.banho || '---'}
+                </div>
             </div>
             <div class="card-content">
                 <div class="card-ref">REF: ${item.codigo}</div>
                 <div class="card-name">${item.nome}</div>
+                <div class="card-qty" style="background: ${bgCor}; color: ${qtdCor}; font-size: 0.8rem; font-weight: 700; margin-top: 5px; padding: 2px 8px; border-radius: 4px; display: inline-block;">
+                    Estoque: ${qtdTexto}
+                </div>
             </div>
         </div>`;
     }).join('');
 }
-
 function renderOrders(orders) {
     const ordersList = document.getElementById('ordersList');
     if (!ordersList) return;
@@ -468,23 +508,30 @@ function renderOrders(orders) {
     }).join('');
 }
 
-function openExpandedModal(codigo, nome, banho, imgUrl) {
+function openExpandedModal(codigo, nome, banho, imgUrl, quantidade) {
     const modal = document.getElementById('expandedCardModal');
     if (!modal) return;
 
-    // Preenche os dados básicos da peça
+    // Preenche imagem e textos básicos
     document.getElementById('exp_img').src = imgUrl;
-    document.getElementById('exp_nome').innerText = nome;
     document.getElementById('exp_codigo').innerText = codigo;
     document.getElementById('exp_banho').innerText = banho;
 
-    // Reseta o formulário de pedido para o estado inicial
-    document.getElementById('orderFields').style.display = 'none';
-    document.getElementById('btnInitialOrder').style.display = 'block';
+    // Mostra o nome e a quantidade disponível no título
+    const statusEstoque = quantidade > 0 ? `(${quantidade} disponível)` : `(ESGOTADO)`;
+    document.getElementById('exp_nome').innerHTML = `${nome} <br><small style="color: #666; font-size: 0.85rem;">${statusEstoque}</small>`;
 
-    // Limpa campos de texto
-    document.getElementById('m_cliente_nome').value = "";
-    document.getElementById('m_observacoes').value = "";
+    // Reseta o estado do formulário de pedido
+    document.getElementById('orderFields').style.display = 'none';
+    const btnPedido = document.getElementById('btnInitialOrder');
+
+    if (btnPedido) {
+        btnPedido.style.display = 'block';
+        // Opcional: Desativa o botão se não houver estoque
+        btnPedido.disabled = (quantidade <= 0);
+        btnPedido.innerText = quantidade > 0 ? "Lançar Pedido" : "Produto Indisponível";
+        btnPedido.style.opacity = quantidade > 0 ? "1" : "0.5";
+    }
 
     modal.style.display = 'flex';
 }
@@ -639,11 +686,18 @@ function initSwipe() {
 function switchTab(index) {
     const wrapper = document.getElementById('swipeWrapper');
     const panels = document.querySelectorAll('.tab-panel');
+    const btnManual = document.getElementById('btnNovoManual');
 
     wrapper.style.transform = `translateX(${index * -50}%)`;
     currentTab = index;
 
-    // Opcional: Esconde a visibilidade da aba que não está em foco após a animação
+    // --- CORREÇÃO AQUI ---
+    if (btnManual) {
+        // Se index é 0 (Admin), remove o "none" e usa "block" ou "flex"
+        // Como ele está num grid, o ideal é 'block' ou apenas limpar o display
+        btnManual.style.display = (index === 0) ? 'block' : 'none';
+    }
+
     panels.forEach((panel, i) => {
         panel.style.visibility = (i === index) ? 'visible' : 'hidden';
     });

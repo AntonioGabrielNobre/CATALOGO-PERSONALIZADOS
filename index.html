@@ -24,11 +24,6 @@
     <div id="mainApp" style="display: none; overflow-x: hidden;">
         <nav class="navbar">
             <div class="container nav-content">
-                <button onclick="openOrderModal(null)" class="btn-main-order"
-                    style="margin: 10px 0; width: auto; padding: 10px 20px;">
-                    ➕ Novo Pedido Manual
-                </button>
-
                 <div id="orderEditorModal" class="modal">
                     <div class="expanded-card">
                         <span class="close-modal" onclick="closeOrderEditor()">×</span>
@@ -143,6 +138,10 @@
                     <button onclick="applyFilters()"
                         style="background: var(--dark); color: white; height: 45px; border-radius: 8px; cursor: pointer;">Aplicar
                         Filtros</button>
+                    <button id="btnNovoManual" onclick="openOrderModal(null)" class="btn-main-order"
+                        style="background: var(--primary); color: white; height: 45px; border-radius: 8px; cursor: pointer; display: block;">
+                        ➕ Novo Pedido Manual
+                    </button>
                 </div>
 
                 <section class="grid-stats">
