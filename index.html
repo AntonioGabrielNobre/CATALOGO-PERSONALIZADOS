@@ -24,6 +24,91 @@
     <div id="mainApp" style="display: none; overflow-x: hidden;">
         <nav class="navbar">
             <div class="container nav-content">
+                <button onclick="openOrderModal(null)" class="btn-main-order"
+                    style="margin: 10px 0; width: auto; padding: 10px 20px;">
+                    ➕ Novo Pedido Manual
+                </button>
+
+                <div id="orderEditorModal" class="modal">
+                    <div class="expanded-card">
+                        <span class="close-modal" onclick="closeOrderEditor()">×</span>
+                        <div class="expanded-info">
+                            <h2 id="editorTitle">Lançar Novo Pedido</h2>
+                            <div class="order-form-container">
+                                <input type="hidden" id="edit_id">
+
+                                <div class="input-group">
+                                    <label>Código da Peça</label>
+                                    <input type="text" id="edit_codigo" placeholder="Digite o código..."
+                                        onchange="fetchProductDetails(this.value)">
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Descrição do Produto</label>
+                                    <input type="text" id="edit_produto" readonly style="background:#eee">
+                                </div>
+
+                                <div class="detail-grid">
+                                    <div class="input-group">
+                                        <label>Quantidade</label>
+                                        <input type="number" id="edit_quantidade" value="1">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Banho</label>
+                                        <select id="edit_banho">
+                                            <option value="OURO">OURO</option>
+                                            <option value="PRATA">PRATA</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Cliente</label>
+                                    <input type="text" id="edit_cliente">
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Loja</label>
+                                    <select id="edit_loja">
+                                        <option value="MADEAN JOIAS QUIXADA">MADEAN JOIAS QUIXADA</option>
+                                        <option value="MADEAN JOIAS FORTALEZA">MADEAN JOIAS FORTALEZA</option>
+                                        <option value="MADEAN JOIAS IGUATU 1">MADEAN JOIAS IGUATU 1</option>
+                                        <option value="MADEAN JOIAS IGUATU 2">MADEAN JOIAS IGUATU 2</option>
+                                        <option value="MADEAN JOIAS LIMOEIRO">MADEAN JOIAS LIMOEIRO</option>
+                                        <option value="MADEAN JOIAS MARANGUAPE">MADEAN JOIAS MARANGUAPE</option>
+                                    </select>
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Status</label>
+                                    <select id="edit_status">
+                                        <option value="EM ABERTO">EM ABERTO</option>
+                                        <option value="PRODUZINDO">PRODUZINDO</option>
+                                        <option value="FEITO">FEITO</option>
+                                        <option value="ENTREGUE">ENTREGUE</option>
+                                    </select>
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Data do Pedido</label>
+                                    <input type="date" id="edit_data_pedido">
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Observações (Emojis Permitidos)</label>
+                                    <textarea id="edit_observacao" rows="3"></textarea>
+                                </div>
+
+                                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                                    <button class="btn-confirm-final" onclick="saveOrder()" style="flex: 2;">SALVAR
+                                        PEDIDO</button>
+                                    <button id="btnDeleteOrder" class="btn-confirm-final" onclick="deleteOrder()"
+                                        style="flex: 1; background: var(--danger); display: none;">APAGAR</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <span class="brand">Madean <strong>joias</strong></span>
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <div id="statusIndicator" class="status-badge">Sincronizado</div>
@@ -33,7 +118,7 @@
         </nav>
 
         <div id="swipeWrapper" class="tabs-content">
-            
+
             <div id="adminPanel" class="tab-panel container" style="margin-top: 20px;">
                 <div class="filter-section"
                     style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end; box-shadow: var(--shadow);">
@@ -51,8 +136,13 @@
                             <option value="all">Todas as Lojas</option>
                         </select>
                     </div>
+                    <div class="input-group">
+                        <input type="text" id="quickSearch" placeholder="🔍 Buscar por cliente ou código..."
+                            oninput="filterByText(this.value)">
+                    </div>
                     <button onclick="applyFilters()"
-                        style="background: var(--dark); color: white; height: 45px; border-radius: 8px; cursor: pointer;">Aplicar Filtros</button>
+                        style="background: var(--dark); color: white; height: 45px; border-radius: 8px; cursor: pointer;">Aplicar
+                        Filtros</button>
                 </div>
 
                 <section class="grid-stats">
@@ -66,12 +156,15 @@
                     </div>
                 </section>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
-                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow); min-height: 300px;">
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                    <div
+                        style="background: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow); min-height: 300px;">
                         <h4 style="margin-bottom: 15px;">Status dos Pedidos</h4>
                         <canvas id="statusChart"></canvas>
                     </div>
-                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow); min-height: 300px;">
+                    <div
+                        style="background: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow); min-height: 300px;">
                         <h4 style="margin-bottom: 15px;">Pedidos por Loja</h4>
                         <canvas id="storeChart"></canvas>
                     </div>
@@ -82,28 +175,65 @@
             </div>
 
             <div id="catalogPanel" class="tab-panel container" style="margin-top: 20px;">
-                <header class="search-wrapper"> 
+                <header class="search-wrapper">
                     <input type="text" id="searchBar" placeholder="Pesquisar por nome ou código da peça...">
                 </header>
                 <h2>Catálogo de Estoque</h2>
                 <div id="catalog" class="catalog-grid"></div>
             </div>
 
-        </div> </div>
+        </div>
+    </div>
 
-    <div id="orderModal" class="modal">
-        <div class="modal-content">
-            <h3>Lançar Pedido: <span id="modalProductName"></span></h3>
-            <form id="quickOrderForm">
-                <input type="hidden" id="m_codigo">
-                <input type="text" id="m_cliente" placeholder="Nome do Cliente" required>
-                <input type="text" id="m_loja" placeholder="Loja/Vendedor" required>
-                <input type="number" id="m_qtd" value="1" min="1" required>
-                <div class="modal-buttons">
-                    <button type="button" onclick="closeModal()">Cancelar</button>
-                    <button type="submit" style="background: #D4AF37; color: white;">Confirmar Pedido</button>
+    <div id="expandedCardModal" class="modal" style="display:none;">
+        <div class="modal-content expanded-card">
+            <span class="close-modal" onclick="closeExpandedModal()">&times;</span>
+
+            <div class="expanded-layout">
+                <div class="expanded-img-container">
+                    <img id="exp_img" src="" alt="Produto">
                 </div>
-            </form>
+
+                <div class="expanded-info">
+                    <h2 id="exp_nome" class="modal-title">Nome do Produto</h2>
+                    <div class="product-meta">
+                        <span><strong>REF:</strong> <span id="exp_codigo"></span></span>
+                        <span><strong>BANHO:</strong> <span id="exp_banho"></span></span>
+                    </div>
+
+                    <button id="btnInitialOrder" onclick="showOrderStep2()" class="btn-main-order">Lançar
+                        Pedido</button>
+
+                    <div id="orderFields" class="order-form-container" style="display: none;">
+                        <div class="input-group">
+                            <label>Modelo de Gravação</label>
+                            <select id="m_gravacao">
+                                <option value="FOTOGRAVAÇÃO">FOTOGRAVAÇÃO</option>
+                                <option value="GRAVAÇÃO">GRAVAÇÃO</option>
+                                <option value="DESENHO">DESENHO</option>
+                            </select>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Nome do Cliente</label>
+                            <input type="text" id="m_cliente_nome" placeholder="Nome completo do cliente">
+                        </div>
+
+                        <div class="input-group">
+                            <label>Observações do Pedido</label>
+                            <textarea id="m_observacoes" rows="4"
+                                placeholder="Descreva aqui os detalhes da personalização, links de fotos ou instruções especiais..."></textarea>
+                        </div>
+
+                        <div class="vendedor-info">
+                            <span class="label">Vendedor/Loja:</span>
+                            <span id="m_vendedor_auto" class="value">---</span>
+                        </div>
+
+                        <button onclick="processOrder()" class="btn-confirm-final">Finalizar e Enviar WhatsApp</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
