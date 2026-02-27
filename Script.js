@@ -1,7 +1,159 @@
 // 1. Configurações
 const SUPABASE_URL = 'https://injsohwfskwhkayeywed.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_j4BOfsBLWhDw9kJrpByL6w_U607v2AD';
+let allOrders = []; // Isso cria o "balde" vazio que vai segurar os pedidos
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Adicione o parâmetro 'event' na definição da função
+// --- FUNÇÕES GLOBAIS DO MODAL DE LINK ---
+
+window.openModalGerarLink = function () {
+    console.log("Abrindo modal...");
+    const modal = document.getElementById('modalGerarLink');
+    if (!modal) {
+        console.error("Erro: Elemento modalGerarLink não encontrado no HTML");
+        return;
+    }
+
+    modal.style.display = 'block';
+
+    // Limpa filtros
+    if (document.getElementById('linkFilterDataInicio')) document.getElementById('linkFilterDataInicio').value = "";
+    if (document.getElementById('linkFilterDataFim')) document.getElementById('linkFilterDataFim').value = "";
+
+    // Preenche as lojas
+    const selectLoja = document.getElementById('linkFilterLoja');
+    if (selectLoja && typeof allOrdersData !== 'undefined') {
+        const lojasUnicas = [...new Set(allOrdersData.map(o => o.loja).filter(l => l))];
+        selectLoja.innerHTML = '<option value="">Todas as Lojas</option>' +
+            lojasUnicas.sort().map(l => `<option value="${l}">${l}</option>`).join('');
+    }
+
+    renderListaSelecao();
+};
+
+window.fecharModalLink = function () {
+    const modal = document.getElementById('modalGerarLink');
+    if (modal) modal.style.display = 'none';
+};
+
+window.renderListaSelecao = function () {
+    const container = document.getElementById('listaPedidosSelecao');
+    if (!container || typeof allOrdersData === 'undefined') return;
+
+    const filtroLoja = document.getElementById('linkFilterLoja').value;
+    const dataInicio = document.getElementById('linkFilterDataInicio').value;
+    const dataFim = document.getElementById('linkFilterDataFim').value;
+
+    let filtrados = allOrdersData.filter(o => {
+        const bateLoja = !filtroLoja || o.loja === filtroLoja;
+        let batePeriodo = true;
+        if (o.data_pedido) {
+            const dataPedido = o.data_pedido.split('T')[0];
+            if (dataInicio && dataPedido < dataInicio) batePeriodo = false;
+            if (dataFim && dataPedido > dataFim) batePeriodo = false;
+        }
+        return bateLoja && batePeriodo;
+    });
+
+    if (filtrados.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding:20px; color:#999;">Nenhum pedido encontrado.</p>';
+        return;
+    }
+
+    container.innerHTML = filtrados.map(o => `
+        <label style="display:flex; align-items:center; gap:12px; padding:12px; border-bottom:1px solid #eee; cursor:pointer;">
+            <input type="checkbox" class="link-checkbox" value="${o.id}" style="width:18px; height:18px;">
+            <div style="flex:1;">
+                <div style="font-weight:bold; font-size:0.9rem;">${o.cliente || 'Sem Nome'}</div>
+                <div style="font-size:0.75rem; color:#666;">${o.produto} | ${o.loja || 'Geral'}</div>
+            </div>
+        </label>
+    `).join('');
+};
+
+window.executarGerarLink = async function(event) {
+    if (event) event.preventDefault();
+
+    const checkboxes = document.querySelectorAll('.link-checkbox:checked');
+    const idsSelecionados = Array.from(checkboxes).map(cb => cb.value);
+
+    if (idsSelecionados.length === 0) {
+        alert("⚠️ Selecione pelo menos um pedido!");
+        return;
+    }
+
+    const idsString = idsSelecionados.join(',');
+    const hash = btoa(idsString);
+    
+    // DEFINIÇÃO DO LINK DA VERCEL
+    const baseUrl = "https://catalogopersonalizadosmadeanjoias.vercel.app";
+    const urlAprovacao = `${baseUrl}/aprovacao.html?p=${hash}`;
+
+    console.log("Link gerado para Vercel:", urlAprovacao);
+
+    try {
+        await navigator.clipboard.writeText(urlAprovacao);
+        
+        const btn = event.target;
+        const textoOriginal = btn.innerText;
+        btn.innerText = "✅ LINK COPIADO!";
+        btn.style.backgroundColor = "#128C7E";
+
+        setTimeout(() => {
+            btn.innerText = textoOriginal;
+            btn.style.backgroundColor = "#25D366";
+            fecharModalLink();
+        }, 2000);
+
+    } catch (err) {
+        // Fallback caso a cópia automática falhe
+        prompt("Copie o link de aprovação abaixo:", urlAprovacao);
+        fecharModalLink();
+    }
+};
+
+function renderListaSelecao() {
+    console.log("Tentando renderizar. Total de pedidos no banco:", allOrdersData.length);
+
+    const container = document.getElementById('listaPedidosSelecao');
+    if (!container) return;
+
+    const filtroLoja = document.getElementById('linkFilterLoja').value;
+    const dataInicio = document.getElementById('linkFilterDataInicio').value;
+    const dataFim = document.getElementById('linkFilterDataFim').value;
+
+    let filtrados = allOrdersData.filter(o => {
+        // Filtro de Loja
+        const bateLoja = !filtroLoja || o.loja === filtroLoja;
+
+        // Filtro de Período (Só filtra se o usuário preencher a data)
+        let batePeriodo = true;
+        if (o.data_pedido) {
+            const dataPedido = o.data_pedido.split('T')[0];
+
+            if (dataInicio && dataPedido < dataInicio) batePeriodo = false;
+            if (dataFim && dataPedido > dataFim) batePeriodo = false;
+        }
+
+        return bateLoja && batePeriodo;
+    });
+
+    if (filtrados.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#999; font-size:0.8rem; padding:20px;">Nenhum pedido encontrado.</p>';
+        return;
+    }
+
+    container.innerHTML = filtrados.map(o => `
+            <label style="display:flex; align-items:center; gap:12px; padding:12px; border-bottom:1px solid #eee; cursor:pointer;">
+                <input type="checkbox" class="link-checkbox" value="${o.id}" style="width:18px; height:18px;">
+                <div style="flex:1;">
+                    <div style="font-weight:bold; font-size:0.9rem;">${o.cliente || 'Sem Nome'}</div>
+                    <div style="font-size:0.75rem; color:#666;">Ref: ${o.codigo || '---'} | ${o.produto}</div>
+                </div>
+            </label>
+        `).join('');
+}
 
 let currentUserRole = '';
 let currentUserLogin = '';
@@ -70,53 +222,86 @@ async function handleLogin() {
 }
 
 // --- CARREGAR DADOS ---
+// --- CARREGAR DADOS ---
 async function loadAllData() {
+    // 1. Referências com proteção
     const adminPanel = document.getElementById('adminPanel');
     const catalogPanel = document.getElementById('catalogPanel');
     const swipeWrapper = document.getElementById('swipeWrapper');
 
+    // 2. Lógica de exibição por cargo (Role)
     if (currentUserRole === 'admin') {
-        swipeWrapper.style.display = 'flex';
-        swipeWrapper.style.width = '200%';
-        adminPanel.style.display = 'block';
-        adminPanel.style.width = '50%';
-        catalogPanel.style.display = 'block';
-        catalogPanel.style.width = '50%';
-        initSwipe();
-        switchTab(0);
+        if (swipeWrapper) {
+            swipeWrapper.style.display = 'flex';
+            swipeWrapper.style.width = '200%';
+        }
+        if (adminPanel) {
+            adminPanel.style.display = 'block';
+            adminPanel.style.width = '50%';
+        }
+        if (catalogPanel) {
+            catalogPanel.style.display = 'block';
+            catalogPanel.style.width = '50%';
+        }
+        if (typeof initSwipe === "function") initSwipe();
+        if (typeof switchTab === "function") switchTab(0);
     } else {
-        swipeWrapper.style.display = 'block';
-        swipeWrapper.style.width = '100%';
-        adminPanel.style.display = 'none';
-        catalogPanel.style.display = 'block';
-        catalogPanel.style.width = '100%';
+        if (swipeWrapper) {
+            swipeWrapper.style.display = 'block';
+            swipeWrapper.style.width = '100%';
+        }
+        if (adminPanel) adminPanel.style.display = 'none';
+        if (catalogPanel) {
+            catalogPanel.style.display = 'block';
+            catalogPanel.style.width = '100%';
+        }
     }
 
     try {
-        // Busca os pedidos
-        const { data: orders, error } = await supabaseClient
+        console.log("Iniciando busca de dados...");
+
+        // 3. Busca Pedidos (personalizados)
+        const { data: orders, error: errorOrders } = await supabaseClient
             .from('personalizados')
             .select('*')
             .order('data_pedido', { ascending: false });
 
-        if (error) throw error;
+        if (errorOrders) throw errorOrders;
 
+        // ATENÇÃO: Aqui alimentamos a variável global que o Modal usará
         allOrdersData = orders || [];
 
-        // BUSCA O ESTOQUE
-        const { data: stock } = await supabaseClient.from('estoque').select('*');
+        // 4. Busca Estoque
+        const { data: stock, error: errorStock } = await supabaseClient
+            .from('estoque')
+            .select('*')
+            .order('id', { ascending: true })
+            .order('banho', { ascending: true });
+
+        if (errorStock) throw errorStock;
         inventory = stock || [];
 
-        // SE FOR ADMIN, ATUALIZA O DASHBOARD E A LISTA DE PEDIDOS IMEDIATAMENTE
+        console.log("Total de itens no banco:", inventory.length);
+
+        // 5. Renderização Condicional
         if (currentUserRole === 'admin') {
-            updateDashboard(allOrdersData); // Aqui o renderOrders(data) é chamado dentro do dashboard
-            updateStoreFilter(allOrdersData);
+            // Renderiza a lista principal de pedidos no Admin
+            if (typeof renderOrders === "function") {
+                renderOrders(allOrdersData);
+            }
+            if (typeof updateDashboard === "function") updateDashboard(allOrdersData);
+            if (typeof updateStoreFilter === "function") updateStoreFilter(allOrdersData);
         }
 
-        renderStock(inventory);
+        if (typeof renderStock === "function") {
+            renderStock(inventory);
+        }
+
+        console.log("Dados carregados com sucesso!");
 
     } catch (err) {
-        console.error("Erro ao carregar dados:", err.message);
+        console.error("Erro crítico ao carregar dados:", err.message);
+        alert("Erro de conexão com o banco. Verifique o console.");
     }
 }
 
@@ -278,6 +463,25 @@ function openOrderEditor(order = null) {
         document.getElementById('edit_loja').value = order.loja || "";
         document.getElementById('edit_status').value = order.status_pedido || "EM ABERTO";
         document.getElementById('edit_observacao').value = order.observacao_pedido || "";
+        // Limpa fotos anteriores ao abrir
+        document.getElementById('url_foto_1').value = order.foto_resultado_1 || "";
+        document.getElementById('url_foto_2').value = order.foto_resultado_2 || "";
+
+        // Lógica para mostrar as imagens se elas existirem
+        for (let i = 1; i <= 2; i++) {
+            const url = order[`foto_resultado_${i}`];
+            const preview = document.getElementById(`prev_foto_${i}`);
+            const label = document.getElementById(`label_foto_${i}`);
+            if (url) {
+                preview.src = url;
+                preview.style.display = "block";
+                label.style.display = "none";
+            } else {
+                preview.style.display = "none";
+                label.style.display = "block";
+                label.innerText = `📸 Foto ${i}`;
+            }
+        }
 
         // --- CORREÇÃO DA DATA AO ABRIR ---
         if (order.data_pedido) {
@@ -298,7 +502,6 @@ function openOrderEditor(order = null) {
 
 // --- Salvar (Insert ou Update) ---
 async function saveOrder() {
-    // 1. Coleta dos elementos do DOM
     const id = document.getElementById('edit_id').value;
     const status = document.getElementById('edit_status').value;
     const codigoInput = document.getElementById('edit_codigo').value;
@@ -307,22 +510,27 @@ async function saveOrder() {
     const banhoInput = document.getElementById('edit_banho').value;
     const clienteInput = document.getElementById('edit_cliente').value;
     const lojaInput = document.getElementById('edit_loja').value;
-    let dataPedInput = document.getElementById('edit_data_pedido').value;
+    let dataPedInput = document.getElementById('edit_data_pedido')?.value; // Adicionado o ? para não quebrar se não existir
     const obsInput = document.getElementById('edit_observacao').value;
+    // 2. Coleta dos novos campos de foto
+    const foto1 = document.getElementById('url_foto_1').value;
+    const foto2 = document.getElementById('url_foto_2').value;
 
-    // 2. Montagem do Payload EXATAMENTE como as colunas do seu banco
+    // 3. Montagem do Payload CORRIGIDO
     const payload = {
-        codigo: codigoInput.toUpperCase(),
+        codigo: codigoInput.toUpperCase().trim(), // Voltamos para 'codigo' como está no seu banco
         tipo: 'SAIDA',
         quantidade: parseInt(qtdInput) || 1,
         produto: produtoInput,
         banho: banhoInput,
-        foto_url: null, // Conforme sua especificação
         cliente: clienteInput,
         loja: lojaInput,
         observacao_pedido: obsInput,
         status_pedido: status,
-        data_pedido: dataPedInput // Agora ele vai como YYYY-MM-DD ou null
+        data_pedido: dataPedInput || new Date().toISOString().split('T')[0],
+        // Novos campos de fotos:
+        foto_resultado_1: foto1,
+        foto_resultado_2: foto2
     };
 
     if (!dataPedInput || dataPedInput === "") {
@@ -426,46 +634,70 @@ function renderStock(items) {
     const catalog = document.getElementById('catalog');
     if (!catalog) return;
 
-    catalog.innerHTML = items.map(item => {
-        const imgUrl = convertDriveLink(item.imagem_url) || 'https://placehold.jp/200x200.png';
+    if (!items || items.length === 0) {
+        catalog.innerHTML = "<p style='padding:20px;'>Nenhum item encontrado no estoque.</p>";
+        return;
+    }
 
-        // Lógica de cores para o estoque
-        const qtdCor = item.quantidade <= 0 ? 'var(--danger)' : '#333';
-        const qtdTexto = item.quantidade > 0 ? `${item.quantidade} un` : 'Esgotado';
+    // Limpa o catálogo antes de renderizar
+    catalog.innerHTML = "";
 
-        // --- NOVA LÓGICA DE COR DE FUNDO POR BANHO ---
-        const banhoLimpo = (item.banho || "").toUpperCase().trim();
-        let bgCor = "#eee"; // Cor padrão caso não seja ouro nem prata
+    const htmlCards = items.map(item => {
+        try {
+            // Se for a peça 8847, vamos forçar a visibilidade
+            const isTarget = item.codigo == "8847";
 
-        if (banhoLimpo === "OURO") {
-            bgCor = "linear-gradient(135deg, #FFD700, #DAA520)"; // Dourado
-        } else if (banhoLimpo === "PRATA") {
-            bgCor = "linear-gradient(135deg, #C0C0C0, #E8E8E8)"; // Prata
+            const cod = item.codigo || "S/REF";
+            const nome = item.nome || "Produto sem nome";
+            const banho = (item.banho || "---").toUpperCase().trim();
+            const qtd = item.quantidade || 0;
+            const idUnico = item.id; // Usando o ID da tabela do Supabase
+
+            let imgUrl = 'https://placehold.jp/200x200.png';
+            if (item.imagem_url) {
+                imgUrl = typeof convertDriveLink === "function" ? convertDriveLink(item.imagem_url) : item.imagem_url;
+            }
+
+            const qtdCor = qtd <= 0 ? 'var(--danger)' : '#333';
+            const qtdTexto = qtd > 0 ? `${qtd} un` : 'Esgotado';
+
+            let bgCor = "#eee";
+            if (banho === "OURO") {
+                bgCor = "linear-gradient(135deg, #FFD700, #DAA520)";
+            } else if (banho === "PRATA") {
+                bgCor = "linear-gradient(135deg, #C0C0C0, #E8E8E8)";
+            }
+
+            // O segredo aqui é o data-id para não dar conflito no DOM
+            return `
+            <div class="card clickable" data-id="${idUnico}" onclick="openExpandedModal('${cod}', '${nome}', '${banho}', '${imgUrl}', '${qtd}')">
+                <div class="card-img-wrapper">
+                    <img src="${imgUrl}" loading="lazy" onerror="this.src='https://placehold.jp/200x200.png'">
+                    <div class="badge-banho" style="background: ${bgCor}; color: ${banho === 'OURO' ? '#000' : '#333'}; font-weight: bold; position: absolute; top: 5px; right: 5px; padding: 2px 6px; border-radius: 4px; font-size: 10px;">
+                        ${banho}
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-ref" style="font-size: 10px; color: #888;">REF: ${cod}</div>
+                    <div class="card-name" style="font-size: 12px; font-weight: bold; margin: 4px 0;">${nome}</div>
+                    <div class="card-qty" style="background: ${bgCor}; color: ${qtdCor}; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; display: inline-block;">
+                        Estoque: ${qtdTexto}
+                    </div>
+                </div>
+            </div>`;
+        } catch (e) {
+            console.error("Erro no map:", e);
+            return "";
         }
-
-        return `
-        <div class="card clickable" onclick="openExpandedModal('${item.codigo}', '${item.nome}', '${item.banho}', '${imgUrl}', '${item.quantidade}')">
-            <div class="card-img-wrapper">
-                <img src="${imgUrl}" loading="lazy">
-                <div class="badge-banho" style="background: ${bgCor}; color: ${banhoLimpo === 'OURO' ? '#000' : '#333'}; font-weight: bold;">
-                    ${item.banho || '---'}
-                </div>
-            </div>
-            <div class="card-content">
-                <div class="card-ref">REF: ${item.codigo}</div>
-                <div class="card-name">${item.nome}</div>
-                <div class="card-qty" style="background: ${bgCor}; color: ${qtdCor}; font-size: 0.8rem; font-weight: 700; margin-top: 5px; padding: 2px 8px; border-radius: 4px; display: inline-block;">
-                    Estoque: ${qtdTexto}
-                </div>
-            </div>
-        </div>`;
     }).join('');
+
+    catalog.innerHTML = htmlCards;
 }
 function renderOrders(orders) {
     const ordersList = document.getElementById('ordersList');
     if (!ordersList) return;
 
-    if (orders.length === 0) {
+    if (!orders || orders.length === 0) {
         ordersList.innerHTML = '<p style="text-align:center; padding:20px; color:#999;">Nenhum pedido encontrado.</p>';
         return;
     }
@@ -489,24 +721,72 @@ function renderOrders(orders) {
         else if (status === 'CANCELADO') statusConfig = { class: "status-cancel", color: "#dc3545" };
         else if (status === 'ENTREGUE') statusConfig = { class: "status-delivered", color: "#000000" };
 
+        // Componente do Selo (Versão Compacta para o Card)
+        const seloCard = order.aprovado_loja
+            ? `<div style="color: #2e7d32; font-size: 0.65rem; font-weight: bold; margin-top: 5px; text-align: right;">✅ APROVADO PELA LOJA</div>`
+            : '';
+
+        // Componente de Mensagem (Versão Detalhada para dentro da Expansão)
+        const mensagemAprovacaoInterna = order.aprovado_loja
+            ? `<div style="background: #e8f5e9; color: #1b5e20; padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; text-align: center; border: 1px solid #c8e6c9; margin-bottom: 10px;">
+                ✓ A loja já conferiu e aprovou este pedido.
+               </div>`
+            : '';
+
         return `
-        <div class="order-card" onclick="prepareAndOpenEditor('${order.id}')" style="border-left: 5px solid ${statusConfig.color}; cursor: pointer;">
-            <div class="order-header">
-                <div class="order-main-info">
-                    <span class="order-client-name">${order.cliente || 'Cliente não informado'}</span>
-                    <span class="order-date">📅 ${dataFmt}</span>
-                    <span class="order-loja">🏬 ${order.loja || 'Geral'}</span>
+        <div class="order-card" id="card-${order.id}" onclick="toggleCardExpansion('${order.id}')" 
+             style="border-left: 5px solid ${statusConfig.color}; cursor: pointer; position: relative; padding: 0; overflow: hidden; margin-bottom: 12px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+            
+            <div style="padding: 15px;">
+                <div class="order-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    
+                    <div class="order-main-info" style="display: flex; flex-direction: column; gap: 4px;">
+                        <span class="order-client-name" style="font-weight: 700; font-size: 1rem; color: #333;">
+                            ${order.cliente || 'Cliente não informado'}
+                        </span>
+                        <div style="display: flex; gap: 10px; font-size: 0.8rem; color: #777;">
+                            <span>📅 ${dataFmt}</span>
+                            <span>🏬 ${order.loja || 'Geral'}</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                        <span class="status-badge-dynamic ${statusConfig.class}" style="white-space: nowrap;">${status}</span>
+                        ${seloCard}
+                    </div>
                 </div>
-                <span class="status-badge-dynamic ${statusConfig.class}">${status}</span>
+                
+                <div style="margin-top: 12px; font-size: 0.9rem; color: #444;">
+                    <strong>${order.produto || '---'}</strong> <span style="color: #888;">(${order.quantidade || 1} un.)</span>
+                </div>
             </div>
 
-            <div class="order-details-summary" style="margin-top: 10px; font-size: 0.9rem; color: #555;">
-                <strong>${order.produto || '---'}</strong> - ${order.quantidade || 1} un.
-                <p style="font-size: 0.75rem; color: #888; margin-top: 5px;">Clique para editar ou ver detalhes</p>
+            <div class="order-details-expanded" id="details-${order.id}" onclick="event.stopPropagation()" 
+                 style="max-height: 0; overflow: hidden; transition: max-height 0.4s ease; background: #fafafa;">
+                
+                <div style="padding: 20px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 15px;">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        ${order.foto_resultado_1 ? `<img src="${order.foto_resultado_1}" onclick="expandImage(this.src)" style="width: 110px; height: 110px; object-fit: cover; border-radius: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: zoom-in;">` : ''}
+                        ${order.foto_resultado_2 ? `<img src="${order.foto_resultado_2}" onclick="expandImage(this.src)" style="width: 110px; height: 110px; object-fit: cover; border-radius: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: zoom-in;">` : ''}
+                    </div>
+
+                    <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #eee; font-size: 0.85rem; color: #555;">
+                        <strong>📝 Observações:</strong> ${order.observacao_pedido || 'Nenhuma observação.'}
+                    </div>
+
+                    <div style="margin-top: 5px;">
+                        ${mensagemAprovacaoInterna}
+                        <button onclick="prepareAndOpenEditor('${order.id}')" 
+                                style="width: 100%; padding: 14px; background: #1a1a1a; color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer;">
+                            ✏️ Editar este Pedido
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>`;
     }).join('');
 }
+
 
 function openExpandedModal(codigo, nome, banho, imgUrl, quantidade) {
     const modal = document.getElementById('expandedCardModal');
@@ -546,6 +826,11 @@ function prepareAndOpenEditor(orderId) {
     const order = allOrdersData.find(o => String(o.id) === String(orderId));
     if (order) {
         openOrderEditor(order);
+        // Mostra/Esconde o aviso de aprovação de forma segura
+        const statusContainer = document.getElementById('status_aprovacao_container');
+        if (statusContainer) {
+            statusContainer.style.display = order.aprovado_loja ? 'block' : 'none';
+        }
     } else {
         console.error("Pedido não encontrado na lista local:", orderId);
     }
@@ -716,12 +1001,20 @@ function applyFilters() {
     const start = document.getElementById('filterStart').value;
     const end = document.getElementById('filterEnd').value;
     const store = document.getElementById('filterStore').value;
-
-    let filtered = [...allOrdersData];
+    let filtered = allOrders; // allOrders é onde você guarda seus dados originais
 
     if (start) filtered = filtered.filter(o => o.data_pedido >= start);
     if (end) filtered = filtered.filter(o => o.data_pedido <= end);
     if (store !== 'all') filtered = filtered.filter(o => o.loja_vendedor === store);
+
+    const approvalFilter = document.getElementById('filterApproval').value;
+    if (approvalFilter === 'aprovados') {
+        filtered = filtered.filter(o => o.aprovado_loja === true);
+    } else if (approvalFilter === 'pendentes') {
+        filtered = filtered.filter(o => o.aprovado_loja !== true);
+    }
+
+    renderOrders(filtered);
 
     // Atualiza a tela com os resultados filtrados
     updateDashboard(filtered);
@@ -745,4 +1038,137 @@ function filterByText(termo) {
 
     // Atualiza os gráficos e a lista com o que foi encontrado
     updateDashboard(filtrados);
+}
+
+// --- FUNÇÃO DE PESQUISA DO ESTOQUE ---
+function searchInventory(query) {
+    // 1. Converte a busca para minúsculo e limpa espaços
+    const searchTerm = query.toLowerCase().trim();
+
+    // 2. Se não houver termo de busca, volta a mostrar o inventário completo
+    if (!searchTerm) {
+        renderStock(inventory);
+        return;
+    }
+
+    // 3. Filtra o array global 'inventory' (que foi carregado no loadAllData)
+    const filteredItems = inventory.filter(item => {
+        // Transformamos tudo em string para evitar erros com números
+        const cod = String(item.codigo || "").toLowerCase();
+        const nome = String(item.nome || "").toLowerCase();
+        const banho = String(item.banho || "").toLowerCase();
+
+        // Verifica se o termo está no código, no nome ou no banho
+        return cod.includes(searchTerm) ||
+            nome.includes(searchTerm) ||
+            banho.includes(searchTerm);
+    });
+
+    // 4. Chama a função de desenho apenas com os itens encontrados
+    renderStock(filteredItems);
+}
+
+async function uploadPhoto(input, slot) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const label = document.getElementById(`label_foto_${slot}`);
+    const preview = document.getElementById(`prev_foto_${slot}`);
+    const hiddenInput = document.getElementById(`url_foto_${slot}`);
+
+    try {
+        label.innerText = "⏳..."; // Feedback visual de carregando
+
+        // Nome único para o arquivo: ID_PEDIDO_TIMESTAMP.jpg
+        const pedidoId = document.getElementById('edit_id').value || 'novo';
+        const fileName = `${pedidoId}_${Date.now()}_${slot}.jpg`;
+
+        // 1. Upload para o Storage
+        const { data, error } = await supabaseClient.storage
+            .from('fotos_pedidos')
+            .upload(fileName, file);
+
+        if (error) throw error;
+
+        // 2. Pegar a URL pública
+        const { data: publicData } = supabaseClient.storage
+            .from('fotos_pedidos')
+            .getPublicUrl(fileName);
+
+        const publicUrl = publicData.publicUrl;
+
+        // 3. Atualizar a interface
+        hiddenInput.value = publicUrl;
+        preview.src = publicUrl;
+        preview.style.display = "block";
+        label.style.display = "none";
+
+        console.log(`Foto ${slot} enviada:`, publicUrl);
+
+    } catch (err) {
+        console.error("Erro no upload:", err);
+        alert("Erro ao enviar foto: " + err.message);
+        label.innerText = "❌ Erro";
+    }
+}
+
+// Função para controlar a expansão do card
+function toggleCardExpansion(id) {
+    const detail = document.getElementById(`details-${id}`);
+    const card = document.getElementById(`card-${id}`);
+
+    if (!detail) return;
+
+    // Fecha todos os outros cards abertos (efeito sanfona)
+    document.querySelectorAll('.order-details-expanded').forEach(el => {
+        if (el.id !== `details-${id}`) {
+            el.style.maxHeight = null;
+            el.parentElement.classList.remove('active-card');
+        }
+    });
+
+    // Toggle no card clicado usando scrollHeight para altura dinâmica
+    if (detail.style.maxHeight) {
+        detail.style.maxHeight = null;
+        card.classList.remove('active-card');
+    } else {
+        detail.style.maxHeight = detail.scrollHeight + "px";
+        card.classList.add('active-card');
+    }
+}
+
+// Função de Zoom na Foto (Lightbox Moderna)
+function expandImage(src) {
+    // Remove qualquer overlay que tenha ficado aberto por erro
+    const oldOverlay = document.getElementById('img-overlay');
+    if (oldOverlay) oldOverlay.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'img-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(0,0,0,0.9)';
+    overlay.style.zIndex = '10000';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.cursor = 'zoom-out';
+    overlay.style.animation = 'fadeIn 0.3s ease';
+
+    overlay.innerHTML = `
+        <img src="${src}" style="max-width: 90%; max-height: 90%; border-radius: 10px; box-shadow: 0 0 30px rgba(0,0,0,0.5); transform: scale(0.9); transition: transform 0.3s ease;" id="expanded-img">
+        <span style="position: absolute; top: 20px; right: 20px; color: white; font-size: 30px; font-family: Arial;">&times;</span>
+    `;
+
+    overlay.onclick = () => overlay.remove();
+    document.body.appendChild(overlay);
+
+    // Pequeno delay para a animação de entrada da imagem
+    setTimeout(() => {
+        const img = document.getElementById('expanded-img');
+        if (img) img.style.transform = 'scale(1)';
+    }, 10);
 }

@@ -56,7 +56,39 @@
                                         </select>
                                     </div>
                                 </div>
+                                <div class="photo-section"
+                                    style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
+                                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">Fotos do
+                                        Resultado:</label>
 
+                                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                        <div class="photo-upload-box">
+                                            <input type="file" id="upload_foto_1" accept="image/*" capture="environment"
+                                                style="display:none" onchange="uploadPhoto(this, 1)">
+                                            <button type="button"
+                                                onclick="document.getElementById('upload_foto_1').click()"
+                                                style="width: 80px; height: 80px; border: 2px dashed #ccc; border-radius: 8px; cursor: pointer;">
+                                                <span id="label_foto_1">📸 Foto 1</span>
+                                                <img id="prev_foto_1"
+                                                    style="display:none; width: 100%; height: 100%; object-fit: cover; border-radius: 6px;">
+                                            </button>
+                                            <input type="hidden" id="url_foto_1">
+                                        </div>
+
+                                        <div class="photo-upload-box">
+                                            <input type="file" id="upload_foto_2" accept="image/*" capture="environment"
+                                                style="display:none" onchange="uploadPhoto(this, 2)">
+                                            <button type="button"
+                                                onclick="document.getElementById('upload_foto_2').click()"
+                                                style="width: 80px; height: 80px; border: 2px dashed #ccc; border-radius: 8px; cursor: pointer;">
+                                                <span id="label_foto_2">📸 Foto 2</span>
+                                                <img id="prev_foto_2"
+                                                    style="display:none; width: 100%; height: 100%; object-fit: cover; border-radius: 6px;">
+                                            </button>
+                                            <input type="hidden" id="url_foto_2">
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="input-group">
                                     <label>Cliente</label>
                                     <input type="text" id="edit_cliente">
@@ -131,6 +163,14 @@
                             <option value="all">Todas as Lojas</option>
                         </select>
                     </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 600;">Status Aprovação</label>
+                        <select id="filterApproval" style="width: 100%;" onchange="applyFilters()">
+                            <option value="all">Todos</option>
+                            <option value="aprovados">Aprovados pela Loja</option>
+                            <option value="pendentes">Pendente Aprovação</option>
+                        </select>
+                    </div>
                     <div class="input-group">
                         <input type="text" id="quickSearch" placeholder="🔍 Buscar por cliente ou código..."
                             oninput="filterByText(this.value)">
@@ -169,13 +209,24 @@
                     </div>
                 </div>
 
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px; margin-bottom: 15px;">
+                    <h3>Gerenciar Pedidos</h3>
+                    <button onclick="openModalGerarLink()" class="btn-main-order"
+                        style="background: #25D366; color: white;">
+                        🔗 Gerar Link para Loja
+                    </button>
+                </div>
+                <div id="ordersList" class="catalog-grid"></div>
+
                 <h3>Gerenciar Pedidos</h3>
                 <div id="ordersList" class="catalog-grid"></div>
             </div>
 
             <div id="catalogPanel" class="tab-panel container" style="margin-top: 20px;">
                 <header class="search-wrapper">
-                    <input type="text" id="searchBar" placeholder="Pesquisar por nome ou código da peça...">
+                    <input type="text" id="searchBar" placeholder="Pesquisar por nome ou código da peça..."
+                        oninput="searchInventory(this.value)">
                 </header>
                 <h2>Catálogo de Estoque</h2>
                 <div id="catalog" class="catalog-grid"></div>
@@ -236,6 +287,36 @@
         </div>
     </div>
 
+    <div id="modalGerarLink">
+        <div class="modal-content-link">
+            <span onclick="fecharModalLink()"
+                style="position:absolute; right:20px; top:15px; cursor:pointer; font-size:28px; color:#999;">&times;</span>
+
+            <h3 style="margin:0 0 15px 0; color:#333;">🔗 Gerar Link para Loja</h3>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <select id="linkFilterLoja" onchange="renderListaSelecao()"
+                    style="width:100%; padding:12px; border-radius:8px; border:1px solid #ddd; background:#f9f9f9;">
+                    <option value="">Todas as Lojas</option>
+                </select>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="date" id="linkFilterDataInicio" onchange="renderListaSelecao()"
+                        style="padding:10px; border-radius:8px; border:1px solid #ddd;">
+                    <input type="date" id="linkFilterDataFim" onchange="renderListaSelecao()"
+                        style="padding:10px; border-radius:8px; border:1px solid #ddd;">
+                </div>
+            </div>
+
+            <div id="listaPedidosSelecao">
+            </div>
+
+            <button type="button" onclick="executarGerarLink(event)"
+                style="width:100%; padding:15px; background:#25D366; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer; font-size:1rem;">
+                GERAR E COPIAR LINK
+            </button>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
