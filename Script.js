@@ -72,7 +72,7 @@ window.renderListaSelecao = function () {
     `).join('');
 };
 
-window.executarGerarLink = async function(event) {
+window.executarGerarLink = async function (event) {
     if (event) event.preventDefault();
 
     const checkboxes = document.querySelectorAll('.link-checkbox:checked');
@@ -85,7 +85,7 @@ window.executarGerarLink = async function(event) {
 
     const idsString = idsSelecionados.join(',');
     const hash = btoa(idsString);
-    
+
     // DEFINIÇÃO DO LINK DA VERCEL
     const baseUrl = "https://catalogopersonalizadosmadeanjoias.vercel.app";
     const urlAprovacao = `${baseUrl}/aprovacao.html?p=${hash}`;
@@ -94,7 +94,7 @@ window.executarGerarLink = async function(event) {
 
     try {
         await navigator.clipboard.writeText(urlAprovacao);
-        
+
         const btn = event.target;
         const textoOriginal = btn.innerText;
         btn.innerText = "✅ LINK COPIADO!";
@@ -867,37 +867,33 @@ async function changeStatusAction(orderId, statusAtual) {
     } catch (err) { alert("Erro: " + err.message); }
 }
 
-// --- LANÇAR PEDIDO ---
+// --- LANÇAR PEDIDO COM BAIXA DE ESTOQUE ---
 async function processOrder() {
-    // 1. Captura os dados do formulário do catálogo
+    // 1. Captura os dados do formulário
     const cliente = document.getElementById('m_cliente_nome').value.trim();
     const observacaoOriginal = document.getElementById('m_observacoes').value.trim();
     const tipoGravacao = document.getElementById('m_gravacao').value;
 
-    // Dados da peça que estão nos textos do modal
     const produto = document.getElementById('exp_nome').innerText;
     const codigo = document.getElementById('exp_codigo').innerText;
     const banho = document.getElementById('exp_banho').innerText;
 
-    // 2. Validação simples
     if (!cliente) {
         alert("Por favor, digite o nome do cliente.");
         return;
     }
 
-    // Monta a observação combinando o tipo de gravação + observação
     const observacaoFinal = `[${tipoGravacao}] ${observacaoOriginal}`;
+    const lojaNome = (window.userLoja || "MADEAN JOIAS QUIXADA").toUpperCase();
 
-    // 3. Monta o payload para o Supabase
+    // 2. Monta o payload para o Banco
     const payload = {
         codigo: codigo,
         produto: produto,
         quantidade: 1,
         banho: banho,
         cliente: cliente,
-        // Aqui usamos a lógica de detectar a loja do usuário logado ou pedir seleção
-        // Por enquanto, vamos usar uma loja padrão ou pegar do sistema de login
-        loja: window.userLoja || "MADEAN JOIAS QUIXADA",
+        loja: lojaNome,
         status_pedido: 'EM ABERTO',
         tipo: 'SAIDA',
         observacao_pedido: observacaoFinal,
@@ -905,20 +901,56 @@ async function processOrder() {
     };
 
     try {
-        const { error } = await supabaseClient
+        // 3. Salvar no Supabase
+        const { error: erroPedido } = await supabaseClient
             .from('personalizados')
             .insert([payload]);
 
-        if (error) throw error;
+        if (erroPedido) throw erroPedido;
 
-        alert("✅ Pedido enviado com sucesso!");
-        closeExpandedModal();
+        // 4. Subtração de Estoque
+        const { data: itemEstoque, error: erroBusca } = await supabaseClient
+            .from('estoque')
+            .select('quantidade, id')
+            .eq('codigo', codigo)
+            .eq('banho', banho)
+            .single();
 
-        // Se estiver no Admin, recarrega a lista
-        if (typeof loadAllData === "function") loadAllData();
+        if (itemEstoque) {
+            const novaQuantidade = Number(itemEstoque.quantidade) - 1;
+            await supabaseClient
+                .from('estoque')
+                .update({ quantidade: novaQuantidade })
+                .eq('id', itemEstoque.id);
+        }
+
+        // --- 5. GERAÇÃO DA MENSAGEM WHATSAPP ---
+        const textoWhatsapp = `PEDIDOS DE PERSONALIZADOS ${lojaNome}
+
+🔺1 unidade
+
+CLIENTE: ${cliente.toUpperCase()}
+Cod: ${codigo} - ${produto}
+Banho: ${banho}❗️
+Descrição pedido:
+${observacaoFinal}`;
+
+        // Tenta copiar para a área de transferência
+        try {
+            await navigator.clipboard.writeText(textoWhatsapp);
+            alert("✅ Pedido salvo!\n\nExtrato para WhatsApp copiado automaticamente.");
+        } catch (errCopia) {
+            console.error("Erro ao copiar texto:", errCopia);
+            // Fallback caso o navegador bloqueie a cópia
+            alert("✅ Pedido salvo!");
+        }
+
+        // 6. Limpeza e Recarregamento
+        if (typeof closeExpandedModal === "function") closeExpandedModal();
+        if (typeof loadAllData === "function") await loadAllData();
 
     } catch (err) {
-        console.error("Erro ao lançar pedido:", err);
+        console.error("Erro no processo:", err);
         alert("Erro ao salvar pedido: " + err.message);
     }
 }
@@ -998,26 +1030,49 @@ function updateStoreFilter(orders) {
 }
 
 function applyFilters() {
+    // 1. Pega os valores dos filtros
     const start = document.getElementById('filterStart').value;
     const end = document.getElementById('filterEnd').value;
     const store = document.getElementById('filterStore').value;
-    let filtered = allOrders; // allOrders é onde você guarda seus dados originais
-
-    if (start) filtered = filtered.filter(o => o.data_pedido >= start);
-    if (end) filtered = filtered.filter(o => o.data_pedido <= end);
-    if (store !== 'all') filtered = filtered.filter(o => o.loja_vendedor === store);
-
     const approvalFilter = document.getElementById('filterApproval').value;
-    if (approvalFilter === 'aprovados') {
-        filtered = filtered.filter(o => o.aprovado_loja === true);
-    } else if (approvalFilter === 'pendentes') {
-        filtered = filtered.filter(o => o.aprovado_loja !== true);
+
+    // 2. IMPORTANTE: Usar a variável correta que alimentamos no loadAllData
+    // Se no seu script o topo estiver "let allOrdersData = []", usamos ela:
+    let filtered = [...allOrdersData];
+
+    // 3. Filtro por Período (Data)
+    if (start || end) {
+        filtered = filtered.filter(o => {
+            if (!o.data_pedido) return false;
+            const dataPedido = o.data_pedido.split('T')[0]; // Pega apenas YYYY-MM-DD
+
+            if (start && dataPedido < start) return false;
+            if (end && dataPedido > end) return false;
+            return true;
+        });
     }
 
-    renderOrders(filtered);
+    // 4. Filtro por Loja (ajustado de loja_vendedor para loja)
+    if (store && store !== 'all' && store !== '') {
+        filtered = filtered.filter(o => o.loja === store);
+    }
 
-    // Atualiza a tela com os resultados filtrados
-    updateDashboard(filtered);
+    // 5. Filtro por Aprovação
+    if (approvalFilter === 'aprovados') {
+        filtered = filtered.filter(o => o.aprovado_loja === true || o.aprovado_loja === 'true');
+    } else if (approvalFilter === 'pendentes') {
+        filtered = filtered.filter(o => o.aprovado_loja !== true && o.aprovado_loja !== 'true');
+    }
+
+    // 6. Renderiza os cards atualizados
+    if (typeof renderOrders === "function") {
+        renderOrders(filtered);
+    }
+
+    // 7. Atualiza os contadores do Dashboard
+    if (typeof updateDashboard === "function") {
+        updateDashboard(filtered);
+    }
 }
 function filterByText(termo) {
     if (!allOrdersData) return;
