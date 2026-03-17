@@ -14,10 +14,29 @@
     <div id="loginScreen" class="login-overlay">
         <div class="login-box">
             <span class="brand">Madean <strong>joias</strong></span>
-            <h2>Acesso ao Sistema</h2>
-            <input type="text" id="userLogin" placeholder="Usuário">
-            <input type="password" id="userPass" placeholder="Senha">
-            <button onclick="handleLogin()" id="btnLogin">Entrar</button>
+
+            <div class="login-header">
+                <h2>Acesso ao Sistema</h2>
+                <p>Selecione sua unidade para entrar</p>
+            </div>
+
+            <div class="login-form">
+                <select id="userLogin" class="login-select">
+                    <option value="" disabled selected>Selecione sua Loja</option>
+                    <option value="quixada">Quixadá</option>
+                    <option value="fortaleza">Fortaleza</option>
+                    <option value="iguatu">Iguatu</option>
+                    <option value="maranguape">Maranguape</option>
+                    <option value="limoeiro">Limoeiro</option>
+                    <option value="GABRIEL">Gestão - Gabriel</option>
+                </select>
+
+                <input type="password" id="userPass" placeholder="Senha de acesso">
+
+                <button onclick="handleLogin()" id="btnLogin">
+                    Entrar no Sistema
+                </button>
+            </div>
         </div>
     </div>
 
@@ -178,8 +197,8 @@
                     <button onclick="applyFilters()"
                         style="background: var(--dark); color: white; height: 45px; border-radius: 8px; cursor: pointer;">Aplicar
                         Filtros</button>
-                    <button id="btnNovoManual" onclick="openOrderModal(null)" class="btn-main-order"
-                        style="background: var(--primary); color: white; height: 45px; border-radius: 8px; cursor: pointer; display: block;">
+                    <button id="btnNovoManual" onclick="openOrderManual()"
+                        style="background: #a47c48; color: white; height: 45px; border-radius: 8px; cursor: pointer; display: none; width: 100%; font-weight: bold; border: none; margin-top: 10px;">
                         ➕ Novo Pedido Manual
                     </button>
                 </div>

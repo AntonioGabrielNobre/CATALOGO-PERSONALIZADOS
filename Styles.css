@@ -729,15 +729,18 @@ canvas {
 
 /* O fundo escuro que cobre a tela toda */
 #modalGerarLink {
-    display: none; 
-    position: fixed; 
-    z-index: 99999; /* Valor muito alto para ficar na frente de tudo */
+    display: none;
+    position: fixed;
+    z-index: 99999;
+    /* Valor muito alto para ficar na frente de tudo */
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.7); /* Fundo preto transparente */
-    backdrop-filter: blur(4px); /* Efeito de desfoque no fundo */
+    background-color: rgba(0, 0, 0, 0.7);
+    /* Fundo preto transparente */
+    backdrop-filter: blur(4px);
+    /* Efeito de desfoque no fundo */
 }
 
 /* A caixa branca do modal */
@@ -748,14 +751,21 @@ canvas {
     width: 90%;
     max-width: 450px;
     border-radius: 15px;
-    box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+    box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
     position: relative;
     animation: slideDown 0.3s ease-out;
 }
 
 @keyframes slideDown {
-    from { transform: translateY(-50px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 /* Estilo da lista interna */
@@ -766,4 +776,109 @@ canvas {
     border-radius: 10px;
     margin: 15px 0;
     background: #fdfdfd;
+}
+
+#btnNovoManual {
+    display: none;
+    /* Começa escondido */
+}
+
+/* Classe que forçaremos via JS */
+.show-admin-btn {
+    display: block !important;
+}
+
+/* Estilo para a caixa de seleção de login */
+.login-select {
+    width: 100%;
+    padding: 12px 15px;
+    margin: 10px 0;
+    border: 1.5px solid #e1e1e1;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    color: #333;
+    outline: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    /* Remove a aparência padrão em alguns navegadores para customizar */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    /* Adiciona uma setinha customizada */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a47c48' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 18px;
+}
+
+.login-select:focus {
+    border-color: #a47c48;
+    /* Cor dourada/primária do seu sistema */
+    background-color: #fff;
+    box-shadow: 0 0 0 4px rgba(164, 124, 72, 0.1);
+}
+
+.login-select:hover {
+    background-color: #fff;
+    border-color: #d1d1d1;
+}
+
+/* Ajuste para o botão de login não ficar colado */
+#btnLogin {
+    margin-top: 15px;
+}
+
+/* Efeito de Bolha (Ripple) */
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.1);
+    /* Cor da bolha (ajuste se quiser mais escura) */
+    transform: scale(0);
+    animation: ripple-animation 0.6s linear;
+    pointer-events: none;
+}
+
+@keyframes ripple-animation {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+/* Garante que o card possa conter a bolha */
+.order-card {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Efeito de Bolha Visível */
+.ripple-effect {
+    position: absolute;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.15) !important;
+    transform: scale(0);
+    animation: ripple-animation 0.6s ease-out;
+    pointer-events: none;
+    z-index: 999;
+}
+
+@keyframes ripple-animation {
+    from {
+        transform: scale(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+/* OBRIGATÓRIO no estilo do card */
+.order-card {
+    position: relative !important;
+    overflow: hidden !important;
 }

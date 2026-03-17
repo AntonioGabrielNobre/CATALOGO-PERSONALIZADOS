@@ -3,6 +3,7 @@ const SUPABASE_URL = 'https://injsohwfskwhkayeywed.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_j4BOfsBLWhDw9kJrpByL6w_U607v2AD';
 let allOrders = []; // Isso cria o "balde" vazio que vai segurar os pedidos
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let windowUserLoja = "";
 
 // Adicione o parâmetro 'event' na definição da função
 // --- FUNÇÕES GLOBAIS DO MODAL DE LINK ---
@@ -173,51 +174,67 @@ function convertDriveLink(url) {
 
 // --- LOGIN ---
 async function handleLogin() {
-    const user = document.getElementById('userLogin').value;
-    const pass = document.getElementById('userPass').value;
-    const btnManual = document.getElementById('btnNovoManual');
+    const userSelect = document.getElementById('userLogin').value;
+    const pass = document.getElementById('userPass').value.trim();
 
-    if (user === 'admin') {
-        // Se for o admin, o botão fica disponível
-        btnManual.setAttribute('data-admin-only', 'true');
-        if (loginSucesso) {
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'block';
-
-            // FORÇAR O BOTÃO A APARECER NO INÍCIO:
-            const btnManual = document.getElementById('btnNovoManual');
-            if (btnManual) {
-                btnManual.style.display = 'block'; // Mostra logo de cara
-            }
-
-            // Garante que comece no Admin (index 0)
-            switchTab(0);
-        }
-    } else {
-        // Se for vendedora, o botão é removido completamente
-        if (btnManual) btnManual.remove();
+    if (!userSelect) {
+        alert("Por favor, selecione uma loja.");
+        return;
     }
 
     try {
+        // 1. Busca no banco usando o login em minúsculo (como está no seu banco)
         const { data, error } = await supabaseClient
             .from('logins')
             .select('*')
-            .eq('login', user)
+            .eq('login', userSelect)
             .eq('senha', pass)
             .single();
 
         if (error || !data) {
-            alert("Usuário ou senha incorretos!");
+            alert("Senha incorreta para a loja selecionada!");
             return;
         }
 
+        // 2. Mapeamento para o Nome Oficial (usado nos Pedidos e Filtros)
+        const lojasMap = {
+            'quixada': 'MADEAN JOIAS QUIXADA',
+            'fortaleza': 'MADEAN JOIAS FORTALEZA',
+            'iguatu': 'MADEAN JOIAS IGUATU 1',
+            'maranguape': 'MADEAN JOIAS MARANGUAPE',
+            'limoeiro': 'MADEAN JOIAS LIMOEIRO',
+            'GABRIEL': 'GABRIEL'
+        };
+
+        // 3. Define as variáveis globais de sessão
         currentUserLogin = data.login;
         currentUserRole = String(data.nivel || 'vendedor').toLowerCase().trim();
+
+        // Define a loja oficial baseada no mapeamento ou no que vem do banco
+        const nomeOficial = lojasMap[userSelect] || data.loja;
+        window.userLoja = nomeOficial;
+        localStorage.setItem('lojaLogada', nomeOficial);
+
+        // 4. Interface e Troca de Tela
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('mainApp').style.display = 'block';
+
+        // Atualiza o texto do vendedor no modal de pedido, se existir
+        const labelVendedor = document.getElementById('m_vendedor_auto');
+        if (labelVendedor) labelVendedor.innerText = nomeOficial;
+
+        // Mostrar botão manual apenas para admin
+        const btnManual = document.getElementById('btnNovoManual');
+        if (btnManual) {
+            btnManual.style.display = (userSelect === 'admin') ? 'block' : 'none';
+        }
+
         await loadAllData();
+        if (userSelect === 'admin') switchTab(0);
+
     } catch (err) {
         console.error("Erro no login:", err.message);
+        alert("Erro ao validar acesso.");
     }
 }
 
@@ -430,20 +447,36 @@ function renderStoreChart(data) {
 }
 
 // --- Busca de Produto pelo Código ---
-async function fetchProductDetails(codigo) {
-    if (!codigo) return;
+async function fetchProductDetails(codigoDigitado) {
+    const cod = codigoDigitado.trim();
+    if (!cod) return;
 
-    // Busca na tabela estoque
-    const { data, error } = await supabaseClient
-        .from('estoque')
-        .select('nome')
-        .eq('codigo', codigo.toUpperCase())
-        .single();
+    try {
+        // Buscamos no estoque ignorando maiúsculas/minúsculas se for texto
+        const { data, error } = await supabaseClient
+            .from('estoque')
+            .select('*')
+            .eq('codigo', cod)
+            .limit(1)
+            .single();
 
-    if (data) {
-        document.getElementById('edit_produto').value = data.nome;
-    } else {
-        document.getElementById('edit_produto').value = "Peça não encontrada no estoque";
+        if (error || !data) {
+            console.error("Produto não encontrado:", cod);
+            document.getElementById('edit_produto').value = "PRODUTO NÃO ENCONTRADO";
+            return;
+        }
+
+        // Preenche os campos do modal
+        document.getElementById('edit_produto').value = data.produto;
+        document.getElementById('edit_banho').value = data.banho || "OURO";
+
+        // Dica: Guarde a quantidade atual num atributo oculto para facilitar a baixa depois
+        document.getElementById('edit_quantidade').setAttribute('data-max', data.quantidade);
+
+        console.log("Produto carregado:", data.produto);
+
+    } catch (err) {
+        console.error("Erro ao buscar produto:", err);
     }
 }
 
@@ -734,9 +767,10 @@ function renderOrders(orders) {
             : '';
 
         return `
-        <div class="order-card" id="card-${order.id}" onclick="toggleCardExpansion('${order.id}')" 
-             style="border-left: 5px solid ${statusConfig.color}; cursor: pointer; position: relative; padding: 0; overflow: hidden; margin-bottom: 12px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-            
+        <div class="order-card" id="card-${order.id}" 
+            onclick="toggleCardExpansion('${order.id}', event)" 
+            ontouchstart="toggleCardExpansion('${order.id}', event)" 
+            style="position: relative; overflow: hidden; border-left: 5px solid ${statusColor}; background: white; border-radius: 8px; margin-bottom: 12px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer;">
             <div style="padding: 15px;">
                 <div class="order-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                     
@@ -884,7 +918,7 @@ async function processOrder() {
     }
 
     const observacaoFinal = `[${tipoGravacao}] ${observacaoOriginal}`;
-    const lojaNome = (window.userLoja || "MADEAN JOIAS QUIXADA").toUpperCase();
+    const lojaNome = windowUserLoja || localStorage.getItem('lojaLogada') || "LOJA NÃO IDENTIFICADA"
 
     // 2. Monta o payload para o Banco
     const payload = {
@@ -893,7 +927,7 @@ async function processOrder() {
         quantidade: 1,
         banho: banho,
         cliente: cliente,
-        loja: lojaNome,
+        loja: window.userLoja || localStorage.getItem('lojaLogada') || "LOJA NÃO IDENTIFICADA",
         status_pedido: 'EM ABERTO',
         tipo: 'SAIDA',
         observacao_pedido: observacaoFinal,
@@ -1168,27 +1202,42 @@ async function uploadPhoto(input, slot) {
 }
 
 // Função para controlar a expansão do card
-function toggleCardExpansion(id) {
-    const detail = document.getElementById(`details-${id}`);
+function toggleCardExpansion(id, event) {
     const card = document.getElementById(`card-${id}`);
+    const det = document.getElementById(`details-${id}`);
 
-    if (!detail) return;
+    // --- LÓGICA DA BOLHA (REFORÇADA) ---
+    if (event) {
+        // Pega a posição seja do Dedo (touches) ou do Mouse (clientX)
+        const posX = event.clientX || (event.touches && event.touches[0].clientX);
+        const posY = event.clientY || (event.touches && event.touches[0].clientY);
 
-    // Fecha todos os outros cards abertos (efeito sanfona)
-    document.querySelectorAll('.order-details-expanded').forEach(el => {
-        if (el.id !== `details-${id}`) {
-            el.style.maxHeight = null;
-            el.parentElement.classList.remove('active-card');
+        if (posX && posY) {
+            const circle = document.createElement("span");
+            const diameter = Math.max(card.clientWidth, card.clientHeight);
+            const radius = diameter / 2;
+
+            const rect = card.getBoundingClientRect();
+
+            circle.style.width = circle.style.height = `${diameter}px`;
+            circle.style.left = `${posX - rect.left - radius}px`;
+            circle.style.top = `${posY - rect.top - radius}px`;
+            circle.classList.add("ripple-effect");
+
+            // Remove bolhas antigas para não pesar o celular
+            const oldRipple = card.querySelector(".ripple-effect");
+            if (oldRipple) oldRipple.remove();
+
+            card.appendChild(circle);
+            setTimeout(() => circle.remove(), 600);
         }
-    });
+    }
 
-    // Toggle no card clicado usando scrollHeight para altura dinâmica
-    if (detail.style.maxHeight) {
-        detail.style.maxHeight = null;
-        card.classList.remove('active-card');
+    // --- LÓGICA DE EXPANDIR ---
+    if (det.style.maxHeight === "0px" || det.style.maxHeight === "") {
+        det.style.maxHeight = "500px";
     } else {
-        detail.style.maxHeight = detail.scrollHeight + "px";
-        card.classList.add('active-card');
+        det.style.maxHeight = "0px";
     }
 }
 
@@ -1226,4 +1275,41 @@ function expandImage(src) {
         const img = document.getElementById('expanded-img');
         if (img) img.style.transform = 'scale(1)';
     }, 10);
+}
+
+function openOrderManual() {
+    // Limpa todos os campos para um novo lançamento
+    document.getElementById('edit_id').value = "";
+    document.getElementById('edit_codigo').value = "";
+    document.getElementById('edit_produto').value = "";
+    document.getElementById('edit_cliente').value = "";
+    document.getElementById('edit_observacao').value = "";
+    document.getElementById('edit_data_pedido').value = new Date().toISOString().split('T')[0];
+
+    // Define o título
+    document.getElementById('editorTitle').innerText = "Lançar Novo Pedido (Manual)";
+
+    // Abre o modal que você já tem no HTML
+    document.getElementById('orderEditorModal').style.display = 'block';
+}
+
+function createRipple(event) {
+    const card = event.currentTarget;
+
+    const circle = document.createElement("span");
+    const diameter = Math.max(card.clientWidth, card.clientHeight);
+    const radius = diameter / 2;
+
+    circle.style.width = circle.style.height = `${diameter}px`;
+    circle.style.left = `${event.clientX - card.getBoundingClientRect().left - radius}px`;
+    circle.style.top = `${event.clientY - card.getBoundingClientRect().top - radius}px`;
+    circle.classList.add("ripple");
+
+    // Remove qualquer bolha antiga antes de adicionar a nova
+    const ripple = card.getElementsByClassName("ripple")[0];
+    if (ripple) {
+        ripple.remove();
+    }
+
+    card.appendChild(circle);
 }
