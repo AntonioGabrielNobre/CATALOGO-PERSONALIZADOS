@@ -230,6 +230,11 @@ async function handleLogin() {
         }
 
         await loadAllData();
+
+        // APENAS muda de aba, sem abrir modal
+        if (currentUserRole === 'admin' || userSelect === 'GABRIEL') {
+            switchTab(0);
+        }
         if (userSelect === 'admin') switchTab(0);
 
     } catch (err) {
@@ -238,7 +243,6 @@ async function handleLogin() {
     }
 }
 
-// --- CARREGAR DADOS ---
 // --- CARREGAR DADOS ---
 async function loadAllData() {
     // 1. Referências com proteção
@@ -632,8 +636,12 @@ async function deleteOrder() {
     }
 }
 
+// FUNÇÃO PARA FECHAR (O botão X)
 function closeOrderEditor() {
-    document.getElementById('orderEditorModal').style.display = 'none';
+    const modal = document.getElementById('orderEditorModal');
+    if (modal) {
+        modal.style.setProperty('display', 'none', 'important');
+    }
 }
 
 function renderCharts(statusData, storeData) {
@@ -748,18 +756,17 @@ function renderOrders(orders) {
         }
 
         // Configuração de cores baseada no status
+        // AQUI ESTÁ O SEGREDO: O objeto se chama statusConfig
         let statusConfig = { class: "status-open", color: "#c6c6c6" };
         if (status === 'EM PRODUÇÃO' || status === 'PRODUZINDO') statusConfig = { class: "status-process", color: "#da9800" };
         else if (status === 'CONCLUÍDO' || status === 'FEITO') statusConfig = { class: "status-done", color: "#28a745" };
         else if (status === 'CANCELADO') statusConfig = { class: "status-cancel", color: "#dc3545" };
         else if (status === 'ENTREGUE') statusConfig = { class: "status-delivered", color: "#000000" };
 
-        // Componente do Selo (Versão Compacta para o Card)
         const seloCard = order.aprovado_loja
             ? `<div style="color: #2e7d32; font-size: 0.65rem; font-weight: bold; margin-top: 5px; text-align: right;">✅ APROVADO PELA LOJA</div>`
             : '';
 
-        // Componente de Mensagem (Versão Detalhada para dentro da Expansão)
         const mensagemAprovacaoInterna = order.aprovado_loja
             ? `<div style="background: #e8f5e9; color: #1b5e20; padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; text-align: center; border: 1px solid #c8e6c9; margin-bottom: 10px;">
                 ✓ A loja já conferiu e aprovou este pedido.
@@ -767,12 +774,11 @@ function renderOrders(orders) {
             : '';
 
         return `
-        <div class="order-card" id="card-${order.id}" 
-            onclick="toggleCardExpansion('${order.id}', event)" 
-            ontouchstart="toggleCardExpansion('${order.id}', event)" 
-            style="position: relative; overflow: hidden; border-left: 5px solid ${statusColor}; background: white; border-radius: 8px; margin-bottom: 12px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer;">
-            <div style="padding: 15px;">
-                <div class="order-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="order-card" id="card-${order.id}" 
+                onclick="toggleCardExpansion('${order.id}', event)" 
+                style="position: relative; overflow: hidden; border-left: 5px solid ${statusConfig.color}; background: white; border-radius: 8px; margin-bottom: 12px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer;">
+                        
+            <div style="padding: 0;"> <div class="order-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                     
                     <div class="order-main-info" style="display: flex; flex-direction: column; gap: 4px;">
                         <span class="order-client-name" style="font-weight: 700; font-size: 1rem; color: #333;">
@@ -820,7 +826,6 @@ function renderOrders(orders) {
         </div>`;
     }).join('');
 }
-
 
 function openExpandedModal(codigo, nome, banho, imgUrl, quantidade) {
     const modal = document.getElementById('expandedCardModal');
@@ -1202,13 +1207,19 @@ async function uploadPhoto(input, slot) {
 }
 
 // Função para controlar a expansão do card
+let isScrolling = false;
+window.addEventListener('touchmove', () => isScrolling = true);
+window.addEventListener('touchstart', () => isScrolling = false);
+
 function toggleCardExpansion(id, event) {
+    // Se o usuário estiver arrastando a tela, não expande o card
+    if (isScrolling) return;
+
     const card = document.getElementById(`card-${id}`);
     const det = document.getElementById(`details-${id}`);
 
-    // --- LÓGICA DA BOLHA (REFORÇADA) ---
     if (event) {
-        // Pega a posição seja do Dedo (touches) ou do Mouse (clientX)
+        // Lógica da bolha (mantida)
         const posX = event.clientX || (event.touches && event.touches[0].clientX);
         const posY = event.clientY || (event.touches && event.touches[0].clientY);
 
@@ -1216,7 +1227,6 @@ function toggleCardExpansion(id, event) {
             const circle = document.createElement("span");
             const diameter = Math.max(card.clientWidth, card.clientHeight);
             const radius = diameter / 2;
-
             const rect = card.getBoundingClientRect();
 
             circle.style.width = circle.style.height = `${diameter}px`;
@@ -1224,7 +1234,6 @@ function toggleCardExpansion(id, event) {
             circle.style.top = `${posY - rect.top - radius}px`;
             circle.classList.add("ripple-effect");
 
-            // Remove bolhas antigas para não pesar o celular
             const oldRipple = card.querySelector(".ripple-effect");
             if (oldRipple) oldRipple.remove();
 
@@ -1233,9 +1242,11 @@ function toggleCardExpansion(id, event) {
         }
     }
 
-    // --- LÓGICA DE EXPANDIR ---
+    // LÓGICA DE EXPANDIR REFORÇADA
     if (det.style.maxHeight === "0px" || det.style.maxHeight === "") {
-        det.style.maxHeight = "500px";
+        // Fecha outros cards abertos para não virar bagunça (opcional)
+        document.querySelectorAll('.order-details-expanded').forEach(el => el.style.maxHeight = "0px");
+        det.style.maxHeight = "800px"; // Valor alto o suficiente para caber tudo
     } else {
         det.style.maxHeight = "0px";
     }
@@ -1278,38 +1289,25 @@ function expandImage(src) {
 }
 
 function openOrderManual() {
-    // Limpa todos os campos para um novo lançamento
-    document.getElementById('edit_id').value = "";
-    document.getElementById('edit_codigo').value = "";
-    document.getElementById('edit_produto').value = "";
-    document.getElementById('edit_cliente').value = "";
-    document.getElementById('edit_observacao').value = "";
-    document.getElementById('edit_data_pedido').value = new Date().toISOString().split('T')[0];
+    const modal = document.getElementById('orderEditorModal');
+    if (modal) {
+        // Remove o !important do none e coloca flex
+        modal.style.setProperty('display', 'flex', 'important');
 
-    // Define o título
-    document.getElementById('editorTitle').innerText = "Lançar Novo Pedido (Manual)";
+        // Limpa os campos para um novo lançamento
+        document.getElementById('editorTitle').innerText = "Lançar Novo Pedido";
+        // Limpa todos os campos para um novo lançamento
+        document.getElementById('edit_id').value = "";
+        document.getElementById('edit_codigo').value = "";
+        document.getElementById('edit_produto').value = "";
+        document.getElementById('edit_cliente').value = "";
+        document.getElementById('edit_observacao').value = "";
+        document.getElementById('edit_data_pedido').value = new Date().toISOString().split('T')[0];
 
-    // Abre o modal que você já tem no HTML
-    document.getElementById('orderEditorModal').style.display = 'block';
-}
+        // Define o título
+        document.getElementById('editorTitle').innerText = "Lançar Novo Pedido (Manual)";
 
-function createRipple(event) {
-    const card = event.currentTarget;
-
-    const circle = document.createElement("span");
-    const diameter = Math.max(card.clientWidth, card.clientHeight);
-    const radius = diameter / 2;
-
-    circle.style.width = circle.style.height = `${diameter}px`;
-    circle.style.left = `${event.clientX - card.getBoundingClientRect().left - radius}px`;
-    circle.style.top = `${event.clientY - card.getBoundingClientRect().top - radius}px`;
-    circle.classList.add("ripple");
-
-    // Remove qualquer bolha antiga antes de adicionar a nova
-    const ripple = card.getElementsByClassName("ripple")[0];
-    if (ripple) {
-        ripple.remove();
+        // Abre o modal que você já tem no HTML
+        document.getElementById('orderEditorModal').style.display = 'block';
     }
-
-    card.appendChild(circle);
 }
