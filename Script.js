@@ -243,6 +243,132 @@ async function handleLogin() {
     }
 }
 
+// Função para abrir o modal de novo pedido manual
+window.openOrderManual = function () {
+    const modal = document.getElementById('orderEditorModal');
+
+    if (modal) {
+        // 1. Exibe o modal
+        modal.style.setProperty('display', 'flex', 'important');
+
+        // 2. Ajusta o título e garante que o botão de apagar esteja escondido (é um novo pedido)
+        const titulo = document.getElementById('editorTitle');
+        if (titulo) titulo.innerText = "Lançar Novo Pedido (Manual)";
+
+        const btnDelete = document.getElementById('btnDeleteOrder');
+        if (btnDelete) btnDelete.style.display = 'none';
+
+        // 3. Limpa a lista de sugestões caso tenha ficado aberta
+        const lista = document.getElementById('listaSugestoes');
+        if (lista) {
+            lista.innerHTML = '';
+            lista.style.display = 'none';
+        }
+
+        // 4. Limpa TODOS os campos (incluindo os novos que adicionamos no HTML)
+        const campos = [
+            'edit_id',
+            'edit_codigo',
+            'edit_produto',
+            'edit_banho',
+            'edit_cliente',
+            'edit_observacao',
+            'url_foto_1',
+            'url_foto_2'
+        ];
+
+        campos.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = "";
+        });
+
+        // 5. Reseta campos com valores padrão
+        if (document.getElementById('edit_quantidade')) document.getElementById('edit_quantidade').value = "1";
+        if (document.getElementById('edit_status')) document.getElementById('edit_status').value = "EM ABERTO";
+        if (document.getElementById('edit_loja')) document.getElementById('edit_loja').value = "MADEAN JOIAS QUIXADA";
+
+        // 6. Reseta as prévias de fotos (se houver)
+        ['prev_foto_1', 'prev_foto_2'].forEach(id => {
+            const img = document.getElementById(id);
+            if (img) {
+                img.src = "";
+                img.style.display = 'none';
+            }
+        });
+        ['label_foto_1', 'label_foto_2'].forEach(id => {
+            const label = document.getElementById(id);
+            if (label) label.style.display = 'block';
+        });
+
+        // 7. Define a data de hoje como padrão
+        const campoData = document.getElementById('edit_data_pedido');
+        if (campoData) {
+            campoData.value = new Date().toISOString().split('T')[0];
+        }
+
+        console.log("Formulário de novo pedido resetado e aberto.");
+    } else {
+        console.error("Erro: O elemento 'orderEditorModal' não foi encontrado.");
+    }
+};
+
+// 1. Função que busca no estoque local enquanto você digita o código
+function buscarProdutoManual(termo) {
+    const lista = document.getElementById('listaSugestoes');
+    const busca = termo.toLowerCase().trim();
+
+    // Só começa a buscar após digitar 2 caracteres para não sobrecarregar
+    if (busca.length < 2) {
+        lista.style.display = 'none';
+        return;
+    }
+
+    // Filtra dentro da variável 'inventory' (que o loadAllData já carregou do banco)
+    // Procuramos por código ou por nome
+    const sugestoes = inventory.filter(item =>
+        String(item.codigo).toLowerCase().includes(busca) ||
+        item.nome.toLowerCase().includes(busca)
+    ).slice(0, 8); // Mostra no máximo 8 sugestões
+
+    if (sugestoes.length > 0) {
+        lista.style.display = 'block';
+        lista.innerHTML = sugestoes.map(item => `
+            <div onclick="selecionarProdutoManual('${item.codigo}', '${item.nome}', '${item.banho}')" 
+                 style="padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 13px; transition: background 0.2s;"
+                 onmouseover="this.style.background='#f9f9f9'" 
+                 onmouseout="this.style.background='white'">
+                <span style="font-weight: bold; color: #D4AF37;">${item.codigo}</span> - ${item.nome} 
+                <small style="color: #888; margin-left: 5px;">(${item.banho})</small>
+            </div>
+        `).join('');
+    } else {
+        // Se não achar nada, avisa o usuário
+        lista.style.display = 'block';
+        lista.innerHTML = '<div style="padding: 10px; color: #999; font-size: 12px;">Nenhum produto encontrado...</div>';
+    }
+}
+
+// 2. Função que é chamada ao clicar em uma sugestão da lista
+function selecionarProdutoManual(codigo, nome, banho) {
+    // Preenche os campos do modal com os dados da peça selecionada
+    const campoCodigo = document.getElementById('edit_codigo');
+    const campoProduto = document.getElementById('edit_produto');
+    const campoBanho = document.getElementById('edit_banho');
+
+    if (campoCodigo) campoCodigo.value = codigo;
+    if (campoProduto) campoProduto.value = nome;
+    if (campoBanho) campoBanho.value = banho;
+
+    // Fecha a lista de sugestões
+    const lista = document.getElementById('listaSugestoes');
+    if (lista) {
+        lista.innerHTML = '';
+        lista.style.display = 'none';
+    }
+
+    console.log(`Produto selecionado: ${codigo} - ${nome}`);
+}
+
 // --- CARREGAR DADOS ---
 async function loadAllData() {
     // 1. Referências com proteção
@@ -1063,27 +1189,41 @@ function switchTab(index) {
 
 function updateStoreFilter(orders) {
     const select = document.getElementById('filterStore');
+
+    // PROTEÇÃO: Se o elemento não existir no HTML, a função para aqui silenciosamente
+    if (!select) return;
+
+    // Pega as lojas únicas
     const stores = [...new Set(orders.map(o => o.loja_vendedor))].filter(Boolean);
-    select.innerHTML = '<option value="all">Todas as Lojas</option>';
-    stores.forEach(s => select.innerHTML += `<option value="${s}">${s}</option>`);
+
+    // Monta o HTML das opções
+    let options = '<option value="all">Todas as Lojas</option>';
+    stores.forEach(s => {
+        options += `<option value="${s}">${s}</option>`;
+    });
+
+    // Aplica ao select
+    select.innerHTML = options;
 }
 
 function applyFilters() {
-    // 1. Pega os valores dos filtros
-    const start = document.getElementById('filterStart').value;
-    const end = document.getElementById('filterEnd').value;
-    const store = document.getElementById('filterStore').value;
-    const approvalFilter = document.getElementById('filterApproval').value;
+    // 1. Pega os valores dos filtros que AINDA EXISTEM
+    const start = document.getElementById('filterStart')?.value;
+    const end = document.getElementById('filterEnd')?.value;
+
+    // As linhas abaixo tentavam ler elementos que você removeu do HTML. 
+    // Usamos o operador ?. e um valor padrão para não dar erro.
+    const store = document.getElementById('filterStore')?.value || 'all';
+    const approvalFilter = document.getElementById('filterApproval')?.value || 'all';
 
     // 2. IMPORTANTE: Usar a variável correta que alimentamos no loadAllData
-    // Se no seu script o topo estiver "let allOrdersData = []", usamos ela:
     let filtered = [...allOrdersData];
 
     // 3. Filtro por Período (Data)
     if (start || end) {
         filtered = filtered.filter(o => {
             if (!o.data_pedido) return false;
-            const dataPedido = o.data_pedido.split('T')[0]; // Pega apenas YYYY-MM-DD
+            const dataPedido = o.data_pedido.split('T')[0];
 
             if (start && dataPedido < start) return false;
             if (end && dataPedido > end) return false;
@@ -1091,12 +1231,12 @@ function applyFilters() {
         });
     }
 
-    // 4. Filtro por Loja (ajustado de loja_vendedor para loja)
+    // 4. Filtro por Loja (Se o elemento existir no HTML, ele filtra, senão ignora)
     if (store && store !== 'all' && store !== '') {
         filtered = filtered.filter(o => o.loja === store);
     }
 
-    // 5. Filtro por Aprovação
+    // 5. Filtro por Aprovação (Se o elemento existir no HTML, ele filtra, senão ignora)
     if (approvalFilter === 'aprovados') {
         filtered = filtered.filter(o => o.aprovado_loja === true || o.aprovado_loja === 'true');
     } else if (approvalFilter === 'pendentes') {
@@ -1288,26 +1428,264 @@ function expandImage(src) {
     }, 10);
 }
 
-function openOrderManual() {
-    const modal = document.getElementById('orderEditorModal');
+function exibirFotoInformativa() {
+    // ID do seu arquivo que você enviou
+    const fileId = "1640rn5l0NRWtDgs5efu0f_9_exTff81l";
+
+    // Novo formato de link para garantir a renderização (Thumbnail de alta qualidade)
+    const urlDireta = `https://lh3.googleusercontent.com/d/${fileId}=s1600`;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.95);
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 15px;
+    `;
+
+    overlay.innerHTML = `
+        <div style="position: relative; width: 100%; max-width: 500px;">
+            <span style="position: absolute; top: -45px; right: 0; color: white; font-size: 35px;">&times;</span>
+            <img src="${urlDireta}" 
+                 style="width: 100%; height: auto; border-radius: 12px; border: 2px solid #D4AF37; box-shadow: 0 0 25px rgba(212, 175, 55, 0.4);"
+                 onerror="this.src='https://via.placeholder.com/500x800?text=Erro+ao+Carregar+Imagem+do+Drive'">
+            <p style="color: #D4AF37; margin-top: 15px; font-size: 13px; text-align: center; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                Toque para fechar
+            </p>
+        </div>
+    `;
+
+    overlay.onclick = () => overlay.remove();
+    document.body.appendChild(overlay);
+}
+
+// 1. Função para abrir e BUSCAR os dados na hora (evita erro de variável indefinida)
+async function openInventoryConference() {
+    const modal = document.getElementById('modalConferenciaEstoque');
+    if (modal) modal.style.display = 'flex';
+
+    const tbody = document.getElementById('corpoTabelaConferencia');
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Carregando estoque...</td></tr>';
+
+    try {
+        // Buscamos os dados diretamente do Supabase para garantir que estão atualizados
+        const { data: itens, error } = await supabaseClient
+            .from('estoque') // Certifique-se que o nome da tabela é 'estoque'
+            .select('*')
+            .order('codigo', { ascending: true });
+
+        if (error) throw error;
+        renderConferenciaEstoque(itens);
+    } catch (err) {
+        console.error("Erro na conferência:", err);
+        tbody.innerHTML = '<tr><td colspan="4" style="color:red; text-align:center;">Erro ao carregar dados do banco.</td></tr>';
+    }
+}
+
+function fecharModalConferencia() {
+    document.getElementById('modalConferenciaEstoque').style.display = 'none';
+}
+
+// 2. Renderiza os itens recebidos do banco
+function renderConferenciaEstoque(itens) {
+    const tbody = document.getElementById('corpoTabelaConferencia');
+    if (!tbody) return;
+
+    if (!itens || itens.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Nenhum item encontrado.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = itens.map(item => {
+        // AJUSTE: Usando 'item.quantidade' que é o nome real da sua coluna
+        const valorAtual = item.quantidade !== undefined && item.quantidade !== null ? item.quantidade : 0;
+
+        const nomeExibicao = item.banho ? `${item.nome} - ${item.banho}` : item.nome;
+
+        return `
+        <tr style="border-bottom: 1px solid #eee; height: 55px;">
+            <td style="padding: 10px; font-weight: bold; color: #555;">${item.codigo || '---'}</td>
+            <td style="padding: 10px; font-size: 13px;">
+                <span style="display: block; font-weight: 500;">${nomeExibicao}</span>
+            </td>
+            <td style="padding: 10px; text-align: center;">
+                <input type="number" 
+                    value="${valorAtual}" 
+                    id="stk_${item.id}" 
+                    style="width: 65px; padding: 8px; text-align: center; border: 1px solid #ccc; border-radius: 6px; font-weight: bold; background: #fffcf5;">
+            </td>
+            <td style="padding: 10px; text-align: center;">
+                <button onclick="updateQuickStock(${item.id})" 
+                    style="background: #D4AF37; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                    OK
+                </button>
+            </td>
+        </tr>
+        `;
+    }).join('');
+}
+
+// 3. Salva a alteração individual
+async function updateQuickStock(id) {
+    const input = document.getElementById(`stk_${id}`);
+    if (!input) return;
+
+    const novoValor = parseInt(input.value);
+    const btn = event.target; // Pega o botão que foi clicado
+
+    // Feedback visual de carregando
+    const originalText = btn.innerText;
+    btn.innerText = "...";
+    btn.disabled = true;
+
+    try {
+        // AJUSTE: 'quantidade' é o nome da coluna no seu Supabase
+        const { error } = await supabaseClient
+            .from('estoque')
+            .update({ quantidade: novoValor })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        // Feedback de sucesso
+        btn.innerText = "✅";
+        btn.style.background = "#28a745";
+
+        setTimeout(() => {
+            btn.innerText = "OK";
+            btn.style.background = "#D4AF37";
+            btn.disabled = false;
+        }, 2000);
+
+    } catch (err) {
+        console.error("Erro ao salvar estoque:", err);
+        alert("Erro ao salvar: " + err.message);
+        btn.innerText = "Erro";
+        btn.style.background = "#dc3545";
+        btn.disabled = false;
+    }
+}
+
+// Abre o modal para novo produto
+// Função para abrir o modal de produto
+window.openNewProductModal = function () {
+    const modal = document.getElementById('productModal');
     if (modal) {
-        // Remove o !important do none e coloca flex
+        // Força a exibição usando flex e !important via JS
         modal.style.setProperty('display', 'flex', 'important');
 
-        // Limpa os campos para um novo lançamento
-        document.getElementById('editorTitle').innerText = "Lançar Novo Pedido";
-        // Limpa todos os campos para um novo lançamento
-        document.getElementById('edit_id').value = "";
-        document.getElementById('edit_codigo').value = "";
-        document.getElementById('edit_produto').value = "";
-        document.getElementById('edit_cliente').value = "";
-        document.getElementById('edit_observacao').value = "";
-        document.getElementById('edit_data_pedido').value = new Date().toISOString().split('T')[0];
+        // Limpa os campos para um novo cadastro
+        document.getElementById('prod_id').value = "";
+        document.getElementById('prod_codigo').value = "";
+        document.getElementById('prod_nome').value = "";
+        document.getElementById('prod_banho').value = "OURO";
+        document.getElementById('prod_quantidade').value = "0";
+        document.getElementById('prod_url').value = "";
 
-        // Define o título
-        document.getElementById('editorTitle').innerText = "Lançar Novo Pedido (Manual)";
+        document.getElementById('productModalTitle').innerText = "Cadastrar Novo Produto";
+        console.log("Modal de estoque aberto");
+    } else {
+        console.error("Elemento 'productModal' não encontrado!");
+    }
+};
 
-        // Abre o modal que você já tem no HTML
-        document.getElementById('orderEditorModal').style.display = 'block';
+// Função para fechar o modal
+window.closeProductModal = function () {
+    const modal = document.getElementById('productModal');
+    if (modal) {
+        modal.style.setProperty('display', 'none', 'important');
+    }
+};
+
+// Função para salvar no Supabase
+window.saveProduct = async function () {
+    const codigo = document.getElementById('prod_codigo').value;
+    const nome = document.getElementById('prod_nome').value.toUpperCase();
+    const banho = document.getElementById('prod_banho').value;
+    const quantidade = parseInt(document.getElementById('prod_quantidade').value) || 0;
+    const imagem_url = document.getElementById('prod_url').value;
+
+    if (!codigo || !nome) {
+        alert("Preencha Código e Nome!");
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('estoque')
+            .insert([{
+                codigo,
+                nome,
+                banho,
+                quantidade,
+                imagem_url
+            }]);
+
+        if (error) throw error;
+
+        alert("Produto cadastrado com sucesso!");
+        closeProductModal();
+
+        // Atualiza a lista geral se a função existir
+        if (typeof loadAllData === "function") loadAllData();
+
+    } catch (err) {
+        console.error("Erro ao inserir:", err);
+        alert("Erro: " + err.message);
+    }
+};
+
+function closeProductModal() {
+    document.getElementById('productModal').style.display = 'none';
+}
+
+// Salva ou Atualiza o Produto
+async function saveProduct() {
+    const id = document.getElementById('prod_id').value;
+    const codigo = document.getElementById('prod_codigo').value;
+    const nome = document.getElementById('prod_nome').value.toUpperCase();
+    const banho = document.getElementById('prod_banho').value;
+    const quantidade = parseInt(document.getElementById('prod_quantidade').value);
+    const imagem_url = document.getElementById('prod_url').value;
+
+    if (!codigo || !nome) {
+        alert("Código e Nome são obrigatórios!");
+        return;
+    }
+
+    const productData = {
+        codigo,
+        nome,
+        banho,
+        quantidade,
+        imagem_url
+    };
+
+    // Se tiver ID, adiciona ao objeto para o Supabase saber que é atualização
+    if (id) productData.id = id;
+
+    try {
+        // .upsert faz o seguinte: se o ID existe, ele dá UPDATE. Se não existe, dá INSERT.
+        const { error } = await supabaseClient
+            .from('estoque')
+            .upsert(productData);
+
+        if (error) throw error;
+
+        alert("Produto salvo com sucesso!");
+        closeProductModal();
+
+        // Recarrega os dados para atualizar a lista de inventário e o autocomplete
+        if (typeof loadAllData === "function") loadAllData();
+
+    } catch (err) {
+        console.error("Erro ao salvar produto:", err);
+        alert("Erro ao salvar: " + err.message);
     }
 }
