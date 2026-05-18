@@ -707,45 +707,35 @@ async function saveOrder() {
     }
 
     try {
-        let error;
-
-        if (id) {
-            // --- ATUALIZAÇÃO (PATCH) ---
-            const { error: patchError } = await supabaseClient
-                .from('personalizados')
-                .update(payload)
-                .eq('id', parseInt(id));
-            error = patchError;
-        } else {
-            // --- INSERÇÃO (POST) ---
-            const { error: insertError } = await supabaseClient
-                .from('personalizados')
-                .insert([payload]);
-            error = insertError;
-        }
-
         if (error) throw error;
 
-        // === CÓDIGO CORRIGIDO PARA ÁREA DE TRANSFERÊNCIA NO CELULAR ===
-
-        // 1. Monta o texto padrão que você deseja enviar no WhatsApp
+        // 1. Monta a mensagem padrão para o WhatsApp
         const textoWhatsapp = `Olá! Seu pedido do produto *${payload.produto}* (Cód: ${payload.codigo}) no banho *${payload.banho}* foi registrado com sucesso para a loja *${payload.loja}*.`;
 
-        // 2. Tenta copiar usando a API moderna (Clipboard)
-        if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(textoWhatsapp)
-                .then(() => {
-                    alert("✅ Pedido salvo e mensagem copiada para o WhatsApp!");
-                })
-                .catch(err => {
-                    console.warn("Falha na cópia automática, tentando fallback...", err);
-                    fallbackCopiarTexto(textoWhatsapp);
-                });
-        } else {
-            fallbackCopiarTexto(textoWhatsapp);
-        }
+        // 2. Detecta se o usuário está no celular/tablet
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-        // ============================================================
+        if (isMobile) {
+            // --- COMPORTAMENTO PARA CELULAR ---
+            // Como o celular bloqueia a cópia após o await, abrimos direto o compartilhamento ou o WhatsApp
+            alert("✅ Pedido processado com sucesso!");
+
+            // Cria o link direto para o WhatsApp (sem número específico, abre a lista de contatos)
+            const urlWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWhatsapp)}`;
+
+            // Abre o WhatsApp para o usuário apenas colar/enviar para o cliente ou grupo
+            window.open(urlWhatsapp, '_blank');
+        } else {
+            // --- COMPORTAMENTO PARA COMPUTADOR ---
+            // No PC a cópia direta funciona perfeitamente
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(textoWhatsapp)
+                    .then(() => alert("✅ Pedido salvo e mensagem copiada para o PC!"))
+                    .catch(() => fallbackCopiarTexto(textoWhatsapp));
+            } else {
+                fallbackCopiarTexto(textoWhatsapp);
+            }
+        }
 
         closeOrderEditor(); // Fecha o modal
 
