@@ -1115,7 +1115,7 @@ async function processOrder() {
     }
 
     const observacaoFinal = `[${tipoGravacao}] ${observacaoOriginal}`;
-    const lojaNome = windowUserLoja || localStorage.getItem('lojaLogada') || "LOJA NÃO IDENTIFICADA"
+    const lojaNome = window.userLoja || localStorage.getItem('lojaLogada') || "LOJA NÃO IDENTIFICADA";
 
     // 2. Monta o payload para o Banco
     const payload = {
@@ -1124,7 +1124,7 @@ async function processOrder() {
         quantidade: 1,
         banho: banho,
         cliente: cliente,
-        loja: window.userLoja || localStorage.getItem('lojaLogada') || "LOJA NÃO IDENTIFICADA",
+        loja: lojaNome,
         status_pedido: 'EM ABERTO',
         tipo: 'SAIDA',
         observacao_pedido: observacaoFinal,
@@ -1166,19 +1166,47 @@ Banho: ${banho}❗️
 Descrição pedido:
 ${observacaoFinal}`;
 
-        // Tenta copiar para a área de transferência
-        try {
-            await navigator.clipboard.writeText(textoWhatsapp);
-            alert("✅ Pedido salvo!\n\nExtrato para WhatsApp copiado automaticamente.");
-        } catch (errCopia) {
-            console.error("Erro ao copiar texto:", errCopia);
-            // Fallback caso o navegador bloqueie a cópia
-            alert("✅ Pedido salvo!");
+        // Cria o link de direcionamento direto com o texto embutido
+        const urlWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWhatsapp)}`;
+
+        // Detecta se o usuário está no celular
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            // Seletor dinâmico: busca o botão que aciona o 'processOrder' na tela
+            const btnEnviar = document.querySelector('[onclick*="processOrder"]');
+
+            if (btnEnviar) {
+                btnEnviar.innerHTML = "📲 ENVIAR PARA WHATSAPP";
+                btnEnviar.style.setProperty('background', '#25D366', 'important');
+                btnEnviar.style.setProperty('color', '#ffffff', 'important');
+
+                // Redireciona o clique para abrir o aplicativo do WhatsApp diretamente
+                btnEnviar.onclick = function () {
+                    window.open(urlWhatsapp, '_blank');
+                    if (typeof closeExpandedModal === "function") closeExpandedModal();
+                };
+            }
+
+            alert("✅ Pedido cadastrado e estoque atualizado!\n\nClique no botão verde 'ENVIAR PARA WHATSAPP' que apareceu no formulário para mandar o extrato.");
+        } else {
+            // No Computador: Mantém a cópia automática na área de transferência
+            try {
+                await navigator.clipboard.writeText(textoWhatsapp);
+                alert("✅ Pedido salvo!\n\nExtrato para WhatsApp copiado automaticamente.");
+            } catch (errCopia) {
+                console.error("Erro ao copiar texto:", errCopia);
+                // Fallback de segurança para PC
+                if (typeof fallbackCopiarTexto === "function") fallbackCopiarTexto(textoWhatsapp);
+            }
+            // No computador já pode fechar o modal direto
+            if (typeof closeExpandedModal === "function") closeExpandedModal();
         }
 
-        // 6. Limpeza e Recarregamento
-        if (typeof closeExpandedModal === "function") closeExpandedModal();
-        if (typeof loadAllData === "function") await loadAllData();
+        // 6. Recarregamento dos dados de fundo (gráficos, tabelas)
+        if (typeof loadAllData === "function") {
+            await loadAllData();
+        }
 
     } catch (err) {
         console.error("Erro no processo:", err);
