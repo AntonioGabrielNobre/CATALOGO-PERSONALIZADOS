@@ -664,6 +664,7 @@ function openOrderEditor(order = null) {
 }
 
 // --- Salvar (Insert ou Update) ---
+// --- Salvar (Insert ou Update) ---
 async function saveOrder() {
     const id = document.getElementById('edit_id').value;
     const status = document.getElementById('edit_status').value;
@@ -673,15 +674,16 @@ async function saveOrder() {
     const banhoInput = document.getElementById('edit_banho').value;
     const clienteInput = document.getElementById('edit_cliente').value;
     const lojaInput = document.getElementById('edit_loja').value;
-    let dataPedInput = document.getElementById('edit_data_pedido')?.value; // Adicionado o ? para não quebrar se não existir
+    let dataPedInput = document.getElementById('edit_data_pedido')?.value;
     const obsInput = document.getElementById('edit_observacao').value;
-    // 2. Coleta dos novos campos de foto
+
+    // Coleta dos novos campos de foto
     const foto1 = document.getElementById('url_foto_1').value;
     const foto2 = document.getElementById('url_foto_2').value;
 
-    // 3. Montagem do Payload CORRIGIDO
+    // Montagem do Payload
     const payload = {
-        codigo: codigoInput.toUpperCase().trim(), // Voltamos para 'codigo' como está no seu banco
+        codigo: codigoInput.toUpperCase().trim(),
         tipo: 'SAIDA',
         quantidade: parseInt(qtdInput) || 1,
         produto: produtoInput,
@@ -691,46 +693,65 @@ async function saveOrder() {
         observacao_pedido: obsInput,
         status_pedido: status,
         data_pedido: dataPedInput || new Date().toISOString().split('T')[0],
-        // Novos campos de fotos:
         foto_resultado_1: foto1,
         foto_resultado_2: foto2
     };
 
     if (!dataPedInput || dataPedInput === "") {
-        dataPedInput = null; // Ou use new Date().toISOString().split('T')[0] se quiser forçar uma data
+        dataPedInput = null;
     }
 
-    // 3. Lógica para data_envio (Apenas quando muda para ENTREGUE)
     if (status === 'ENTREGUE') {
-        // Salva a data e hora do momento da entrega
         payload.data_envio = new Date().toISOString();
     }
 
     try {
+        let error;
+
+        // === 1. RESTAURADO O ENVIO PARA O SUPABASE ===
+        if (id) {
+            // --- ATUALIZAÇÃO (PATCH) ---
+            const { error: patchError } = await supabaseClient
+                .from('personalizados')
+                .update(payload)
+                .eq('id', parseInt(id));
+            error = patchError;
+        } else {
+            // --- INSERÇÃO (POST) ---
+            const { error: insertError } = await supabaseClient
+                .from('personalizados')
+                .insert([payload]);
+            error = insertError;
+        }
+
         if (error) throw error;
 
-        // 1. Monta a mensagem padrão para o WhatsApp
+        // === 2. MONTAGEM DA MENSAGEM DO WHATSAPP ===
         const textoWhatsapp = `Olá! Seu pedido do produto *${payload.produto}* (Cód: ${payload.codigo}) no banho *${payload.banho}* foi registrado com sucesso para a loja *${payload.loja}*.`;
-
-        // 2. Cria o link direto do WhatsApp (Texto embutido)
         const urlWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWhatsapp)}`;
 
-        // 3. Detecta se é celular
+        // Detecta se o usuário está usando celular
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
         if (isMobile) {
-            // No Celular: Transforma o botão salvar em um disparador direto e seguro
-            const btnSalvar = document.querySelector('.btn-confirm-final[onclick="saveOrder()"]');
+            // Seletor Inteligente: Pega o botão de salvar dentro do modal, ignorando o botão de apagar
+            const btnSalvar = document.querySelector('#orderEditorModal .btn-confirm-final:not(#btnDeleteOrder)');
+
             if (btnSalvar) {
                 btnSalvar.innerHTML = "📲 ENVIAR PARA WHATSAPP";
-                btnSalvar.style.background = "#25D366";
-                btnSalvar.style.color = "white";
-                // Muda a ação do clique para abrir o WhatsApp diretamente (Ação nativa e aceita pelo celular)
-                btnSalvar.setAttribute("onclick", `window.open('${urlWhatsapp}', '_blank'); closeOrderEditor();`);
+                btnSalvar.style.setProperty('background', '#25D366', 'important');
+                btnSalvar.style.setProperty('color', '#ffffff', 'important');
+
+                // Aplica a nova função de clique nativa direta para o WhatsApp
+                btnSalvar.onclick = function () {
+                    window.open(urlWhatsapp, '_blank');
+                    closeOrderEditor();
+                };
             }
-            alert("✅ Pedido Salvo! Clique no botão verde que apareceu para encaminhar ao WhatsApp.");
+
+            alert("✅ Pedido Salvo com sucesso!\n\nClique no botão verde 'ENVIAR PARA WHATSAPP' que apareceu no formulário para encaminhar.");
         } else {
-            // No Computador: Continua copiando automático como você já gostava
+            // Comportamento padrão para Computador (Cópia automática)
             if (navigator.clipboard && window.isSecureContext) {
                 await navigator.clipboard.writeText(textoWhatsapp)
                     .then(() => alert("✅ Pedido salvo e mensagem copiada!"))
@@ -738,10 +759,10 @@ async function saveOrder() {
             } else {
                 fallbackCopiarTexto(textoWhatsapp);
             }
-            closeOrderEditor(); // No PC já pode fechar direto
+            closeOrderEditor();
         }
 
-        // Recarrega os dados para atualizar os gráficos e a lista
+        // Recarrega os dados da tela
         if (typeof loadAllData === "function") {
             await loadAllData();
         }
