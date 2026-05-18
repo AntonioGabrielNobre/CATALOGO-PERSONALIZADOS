@@ -712,32 +712,34 @@ async function saveOrder() {
         // 1. Monta a mensagem padrão para o WhatsApp
         const textoWhatsapp = `Olá! Seu pedido do produto *${payload.produto}* (Cód: ${payload.codigo}) no banho *${payload.banho}* foi registrado com sucesso para a loja *${payload.loja}*.`;
 
-        // 2. Detecta se o usuário está no celular/tablet
+        // 2. Cria o link direto do WhatsApp (Texto embutido)
+        const urlWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWhatsapp)}`;
+
+        // 3. Detecta se é celular
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
         if (isMobile) {
-            // --- COMPORTAMENTO PARA CELULAR ---
-            // Como o celular bloqueia a cópia após o await, abrimos direto o compartilhamento ou o WhatsApp
-            alert("✅ Pedido processado com sucesso!");
-
-            // Cria o link direto para o WhatsApp (sem número específico, abre a lista de contatos)
-            const urlWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWhatsapp)}`;
-
-            // Abre o WhatsApp para o usuário apenas colar/enviar para o cliente ou grupo
-            window.open(urlWhatsapp, '_blank');
+            // No Celular: Transforma o botão salvar em um disparador direto e seguro
+            const btnSalvar = document.querySelector('.btn-confirm-final[onclick="saveOrder()"]');
+            if (btnSalvar) {
+                btnSalvar.innerHTML = "📲 ENVIAR PARA WHATSAPP";
+                btnSalvar.style.background = "#25D366";
+                btnSalvar.style.color = "white";
+                // Muda a ação do clique para abrir o WhatsApp diretamente (Ação nativa e aceita pelo celular)
+                btnSalvar.setAttribute("onclick", `window.open('${urlWhatsapp}', '_blank'); closeOrderEditor();`);
+            }
+            alert("✅ Pedido Salvo! Clique no botão verde que apareceu para encaminhar ao WhatsApp.");
         } else {
-            // --- COMPORTAMENTO PARA COMPUTADOR ---
-            // No PC a cópia direta funciona perfeitamente
+            // No Computador: Continua copiando automático como você já gostava
             if (navigator.clipboard && window.isSecureContext) {
                 await navigator.clipboard.writeText(textoWhatsapp)
-                    .then(() => alert("✅ Pedido salvo e mensagem copiada para o PC!"))
+                    .then(() => alert("✅ Pedido salvo e mensagem copiada!"))
                     .catch(() => fallbackCopiarTexto(textoWhatsapp));
             } else {
                 fallbackCopiarTexto(textoWhatsapp);
             }
+            closeOrderEditor(); // No PC já pode fechar direto
         }
-
-        closeOrderEditor(); // Fecha o modal
 
         // Recarrega os dados para atualizar os gráficos e a lista
         if (typeof loadAllData === "function") {
