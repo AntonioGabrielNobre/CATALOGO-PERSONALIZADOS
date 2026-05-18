@@ -714,7 +714,7 @@ async function saveOrder() {
             const { error: patchError } = await supabaseClient
                 .from('personalizados')
                 .update(payload)
-                .eq('id', parseInt(id)); // Garante que o ID é um número
+                .eq('id', parseInt(id));
             error = patchError;
         } else {
             // --- INSERÇÃO (POST) ---
@@ -726,7 +726,27 @@ async function saveOrder() {
 
         if (error) throw error;
 
-        alert("✅ Pedido processado com sucesso!");
+        // === CÓDIGO CORRIGIDO PARA ÁREA DE TRANSFERÊNCIA NO CELULAR ===
+
+        // 1. Monta o texto padrão que você deseja enviar no WhatsApp
+        const textoWhatsapp = `Olá! Seu pedido do produto *${payload.produto}* (Cód: ${payload.codigo}) no banho *${payload.banho}* foi registrado com sucesso para a loja *${payload.loja}*.`;
+
+        // 2. Tenta copiar usando a API moderna (Clipboard)
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(textoWhatsapp)
+                .then(() => {
+                    alert("✅ Pedido salvo e mensagem copiada para o WhatsApp!");
+                })
+                .catch(err => {
+                    console.warn("Falha na cópia automática, tentando fallback...", err);
+                    fallbackCopiarTexto(textoWhatsapp);
+                });
+        } else {
+            fallbackCopiarTexto(textoWhatsapp);
+        }
+
+        // ============================================================
+
         closeOrderEditor(); // Fecha o modal
 
         // Recarrega os dados para atualizar os gráficos e a lista
@@ -738,6 +758,39 @@ async function saveOrder() {
         console.error("Erro Supabase:", err);
         alert("❌ Erro ao salvar: " + (err.message || "Verifique o console"));
     }
+}
+
+// Função auxiliar para forçar a cópia em celulares antigos ou navegadores restritos
+function fallbackCopiarTexto(texto) {
+    const textArea = document.createElement("textarea");
+    textArea.value = texto;
+
+    // Evita scroll na tela ao adicionar o elemento
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    // Define a seleção para iOS (iPhone)
+    textArea.setSelectionRange(0, 99999);
+
+    try {
+        const bemSucedido = document.execCommand('copy');
+        if (bemSucedido) {
+            alert("✅ Pedido salvo e mensagem copiada!");
+        } else {
+            // Se tudo falhar, abre para o usuário copiar manualmente de um prompt
+            window.prompt("Pedido Salvo! Copie o texto abaixo para enviar:", texto);
+        }
+    } catch (err) {
+        window.prompt("Pedido Salvo! Copie o texto abaixo para enviar:", texto);
+    }
+
+    document.body.removeChild(textArea);
 }
 // --- Apagar Pedido ---
 async function deleteOrder() {
