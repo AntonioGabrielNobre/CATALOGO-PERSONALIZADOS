@@ -1100,7 +1100,18 @@ async function changeStatusAction(orderId, statusAtual) {
 
 // --- LANÇAR PEDIDO COM BAIXA DE ESTOQUE ---
 async function processOrder() {
-    // 1. Captura os dados do formulário
+    // 1. Bloqueio de múltiplos cliques (Loading)
+    const btnEnviar = document.querySelector('[onclick*="processOrder"]');
+    const textoOriginal = btnEnviar ? btnEnviar.innerHTML : "ENVIAR";
+
+    if (btnEnviar) {
+        btnEnviar.disabled = true;
+        btnEnviar.innerHTML = "⏳ PROCESSANDO...";
+        btnEnviar.style.opacity = "0.7";
+        btnEnviar.style.cursor = "not-allowed";
+    }
+
+    // 2. Captura os dados do formulário
     const cliente = document.getElementById('m_cliente_nome').value.trim();
     const observacaoOriginal = document.getElementById('m_observacoes').value.trim();
     const tipoGravacao = document.getElementById('m_gravacao').value;
@@ -1111,13 +1122,19 @@ async function processOrder() {
 
     if (!cliente) {
         alert("Por favor, digite o nome do cliente.");
+        // Restaura o botão caso falte dados
+        if (btnEnviar) {
+            btnEnviar.disabled = false;
+            btnEnviar.innerHTML = textoOriginal;
+            btnEnviar.style.opacity = "1";
+        }
         return;
     }
 
     const observacaoFinal = `[${tipoGravacao}] ${observacaoOriginal}`;
     const lojaNome = window.userLoja || localStorage.getItem('lojaLogada') || "LOJA NÃO IDENTIFICADA";
 
-    // 2. Monta o payload para o Banco
+    // 3. Monta o payload para o Banco
     const payload = {
         codigo: codigo,
         produto: produto,
@@ -1132,15 +1149,15 @@ async function processOrder() {
     };
 
     try {
-        // 3. Salvar no Supabase
+        // 4. Salvar no Supabase
         const { error: erroPedido } = await supabaseClient
             .from('personalizados')
             .insert([payload]);
 
         if (erroPedido) throw erroPedido;
 
-        // 4. Subtração de Estoque
-        const { data: itemEstoque, error: erroBusca } = await supabaseClient
+        // 5. Subtração de Estoque
+        const { data: itemEstoque } = await supabaseClient
             .from('estoque')
             .select('quantidade, id')
             .eq('codigo', codigo)
@@ -1155,7 +1172,7 @@ async function processOrder() {
                 .eq('id', itemEstoque.id);
         }
 
-        // --- 5. GERAÇÃO DA MENSAGEM WHATSAPP ---
+        // --- 6. GERAÇÃO DA MENSAGEM WHATSAPP ---
         const textoWhatsapp = `PEDIDOS DE PERSONALIZADOS ${lojaNome}
 
 🔺1 unidade
@@ -1166,61 +1183,47 @@ Banho: ${banho}❗️
 Descrição pedido:
 ${observacaoFinal}`;
 
-        // Cria o link de direcionamento direto com o texto embutido
         const urlWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWhatsapp)}`;
-
-        // Detecta se o usuário está no celular
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
         if (isMobile) {
-            // Seletor dinâmico: busca o botão que aciona o 'processOrder' na tela
-            const btnEnviar = document.querySelector('[onclick*="processOrder"]');
-
+            // No celular: Mantém o botão habilitado, mas agora como link para o WhatsApp
             if (btnEnviar) {
                 btnEnviar.innerHTML = "📲 ENVIAR PARA WHATSAPP";
                 btnEnviar.style.setProperty('background', '#25D366', 'important');
                 btnEnviar.style.setProperty('color', '#ffffff', 'important');
+                btnEnviar.disabled = false; // Reabilita para o clique no WhatsApp
 
-                // Redireciona o clique para abrir o aplicativo do WhatsApp diretamente
                 btnEnviar.onclick = function () {
                     window.open(urlWhatsapp, '_blank');
                     if (typeof closeExpandedModal === "function") closeExpandedModal();
                 };
             }
-
-            alert("✅ Pedido cadastrado e estoque atualizado!\n\nClique no botão verde 'ENVIAR PARA WHATSAPP' que apareceu no formulário para mandar o extrato.");
+            alert("✅ Pedido cadastrado! Clique no botão verde abaixo para finalizar no WhatsApp.");
         } else {
-            // No Computador: Mantém a cópia automática na área de transferência
+            // No Computador: Copia e fecha
             try {
                 await navigator.clipboard.writeText(textoWhatsapp);
-                alert("✅ Pedido salvo!\n\nExtrato para WhatsApp copiado automaticamente.");
+                alert("✅ Pedido salvo e extrato copiado!");
             } catch (errCopia) {
-                console.error("Erro ao copiar texto:", errCopia);
-                // Fallback de segurança para PC
                 if (typeof fallbackCopiarTexto === "function") fallbackCopiarTexto(textoWhatsapp);
             }
-            // No computador já pode fechar o modal direto
             if (typeof closeExpandedModal === "function") closeExpandedModal();
         }
 
-        // 6. Recarregamento dos dados de fundo (gráficos, tabelas)
-        if (typeof loadAllData === "function") {
-            await loadAllData();
-        }
+        if (typeof loadAllData === "function") await loadAllData();
 
     } catch (err) {
         console.error("Erro no processo:", err);
         alert("Erro ao salvar pedido: " + err.message);
+        // Em caso de erro, permite tentar novamente
+        if (btnEnviar) {
+            btnEnviar.disabled = false;
+            btnEnviar.innerHTML = textoOriginal;
+            btnEnviar.style.opacity = "1";
+        }
     }
 }
-
-// --- INTERFACE ---
-// Variáveis globais para armazenar a peça selecionada no catálogo
-let pecaSelecionada = {
-    codigo: '',
-    produto: '',
-    banho: ''
-};
 
 // Função que abre o modal quando clica na peça do catálogo
 
