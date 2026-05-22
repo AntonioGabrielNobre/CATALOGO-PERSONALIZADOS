@@ -1,6 +1,6 @@
 // 1. Configurações
-const SUPABASE_URL = 'https://injsohwfskwhkayeywed.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_j4BOfsBLWhDw9kJrpByL6w_U607v2AD';
+const SUPABASE_URL = 'https://sfrkzxhatuorfsvkwcpd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_sfdaQVjLI5RFeJJZb8UJtw_7uLBRM41';
 let allOrders = []; // Isso cria o "balde" vazio que vai segurar os pedidos
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let windowUserLoja = "";
