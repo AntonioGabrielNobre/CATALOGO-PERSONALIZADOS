@@ -243,6 +243,48 @@ async function handleLogin() {
     }
 }
 
+// --- INTEGRAÇÃO COM O HUB (AUTO-LOGIN) ---
+window.addEventListener('message', async function (event) {
+    // SEGURANÇA: Substitua pela URL exata onde o seu Hub React está rodando
+    // Ex: 'https://seu-hub-sigma.vercel.app' ou 'http://localhost:5173' durante testes
+    const origemPermitida = '*';
+    if (origemPermitida !== '*' && event.origin !== origemPermitida) return;
+
+    // Verifica se a mensagem é a de autologin vinda do Hub
+    if (event.data && event.data.tipo === 'HUB_AUTOLOGIN') {
+        const userEmail = event.data.email;
+
+        const selectElement = document.getElementById('userLogin');
+        const passElement = document.getElementById('userPass');
+
+        if (!selectElement || !passElement) return;
+
+        // Se o e-mail logado for o seu, entra direto na Gestão
+        if (userEmail === 'gn523839@gmail.com') {
+            selectElement.value = 'GESTAO';
+            passElement.value = 'GestaoMadeanJoias123'; // <-- Insira a senha real cadastrada na tabela 'logins' para o login 'GABRIEL'
+        }
+        // Se for o e-mail geral da administração
+        else if (userEmail === 'admin@madean.com') {
+            selectElement.value = 'quixada'; // Ou defina um usuário padrão admin se houver
+            passElement.value = 'SUA_SENHA_AQUI_ADMIN';
+        }
+        // Exemplo para gerentes de filiais específicas
+        else if (userEmail === 'gerente@madean.com') {
+            selectElement.value = 'fortaleza';
+            passElement.value = 'SUA_SENHA_AQUI_GERENTE';
+        }
+        else {
+            // Se for um e-mail sem regra mapeada, não faz o login automático
+            return;
+        }
+
+        // Executa a sua função nativa que já faz a busca no Supabase e abre o app
+        console.log("Hub conectado! Efetuando auto-login para: " + userEmail);
+        await handleLogin();
+    }
+});
+
 // Função para abrir o modal de novo pedido manual
 window.openOrderManual = function () {
     const modal = document.getElementById('orderEditorModal');
