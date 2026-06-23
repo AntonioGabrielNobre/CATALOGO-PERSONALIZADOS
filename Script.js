@@ -243,6 +243,48 @@ async function handleLogin() {
     }
 }
 
+async function exportarParaExcel() {
+    try {
+        // 1. Busca os dados
+        const { data, error } = await supabaseClient
+            .from('personalizados')
+            .select('*');
+
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            alert("Nenhum pedido para exportar.");
+            return;
+        }
+
+        // 2. Ajusta o formato da data antes de criar a planilha
+        const dadosFormatados = data.map(item => {
+            const novoItem = { ...item };
+            if (novoItem.data_pedido) {
+                // Divide a string "YYYY-MM-DD" e remonta como "DD/MM/YYYY"
+                const [ano, mes, dia] = novoItem.data_pedido.split('-');
+                novoItem.data_pedido = `${dia}/${mes}/${ano}`;
+            }
+            return novoItem;
+        });
+
+        // 3. Cria a planilha com os dados já formatados
+        const worksheet = XLSX.utils.json_to_sheet(dadosFormatados);
+
+        // 4. Cria o Workbook e finaliza
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Pedidos");
+
+        const dataAtual = new Date().toLocaleDateString().replace(/\//g, '-');
+        XLSX.writeFile(workbook, `Pedidos_Personalizados_${dataAtual}.xlsx`);
+
+        alert("✅ Arquivo Excel gerado com sucesso!");
+
+    } catch (err) {
+        console.error("Erro ao gerar Excel:", err);
+        alert("Erro ao exportar: " + err.message);
+    }
+}
+
 // --- INTEGRAÇÃO COM O HUB (AUTO-LOGIN) ---
 window.addEventListener('message', async function (event) {
     // SEGURANÇA: Substitua pela URL exata onde o seu Hub React está rodando
@@ -1603,88 +1645,102 @@ function exibirFotoInformativa() {
     overlay.onclick = () => overlay.remove();
     document.body.appendChild(overlay);
 }
-
-// 1. Função para abrir e BUSCAR os dados na hora (evita erro de variável indefinida)
+// =========================================================================
+// 1. ABRIR CONFERÊNCIA DE ESTOQUE (Busca direto no banco com feedback de carregando)
+// =========================================================================
 async function openInventoryConference() {
     const modal = document.getElementById('modalConferenciaEstoque');
-    if (modal) modal.style.display = 'flex';
-
     const tbody = document.getElementById('corpoTabelaConferencia');
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Carregando estoque...</td></tr>';
+
+    if (modal) modal.style.display = 'flex';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; font-weight:500; color:#666;">🔍 Carregando estoque atualizado...</td></tr>';
 
     try {
-        // Buscamos os dados diretamente do Supabase para garantir que estão atualizados
         const { data: itens, error } = await supabaseClient
-            .from('estoque') // Certifique-se que o nome da tabela é 'estoque'
+            .from('estoque')
             .select('*')
             .order('codigo', { ascending: true });
 
         if (error) throw error;
-        renderConferenciaEstoque(itens);
+        renderConferenciaEstoque(itens || []);
     } catch (err) {
         console.error("Erro na conferência:", err);
-        tbody.innerHTML = '<tr><td colspan="4" style="color:red; text-align:center;">Erro ao carregar dados do banco.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="color:#dc3545; text-align:center; padding:20px; font-weight:bold;">❌ Erro ao carregar dados do Supabase.</td></tr>';
     }
 }
 
 function fecharModalConferencia() {
-    document.getElementById('modalConferenciaEstoque').style.display = 'none';
+    const modal = document.getElementById('modalConferenciaEstoque');
+    if (modal) modal.style.display = 'none';
 }
 
-// 2. Renderiza os itens recebidos do banco
+// =========================================================================
+// 2. RENDERIZAR A TABELA DE CONFERÊNCIA (Com os botões integrados na mesma linha)
+// =========================================================================
 function renderConferenciaEstoque(itens) {
     const tbody = document.getElementById('corpoTabelaConferencia');
     if (!tbody) return;
 
     if (!itens || itens.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Nenhum item encontrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; color:#777;">Nenhum item encontrado no estoque.</td></tr>';
         return;
     }
 
     tbody.innerHTML = itens.map(item => {
-        // AJUSTE: Usando 'item.quantidade' que é o nome real da sua coluna
-        const valorAtual = item.quantidade !== undefined && item.quantidade !== null ? item.quantidade : 0;
-
-        const nomeExibicao = item.banho ? `${item.nome} - ${item.banho}` : item.nome;
+        const valorAtual = (item.quantidade !== undefined && item.quantidade !== null) ? item.quantidade : 0;
+        const nomeExibicao = item.banho ? `${item.nome} (${item.banho})` : item.nome;
 
         return `
-        <tr style="border-bottom: 1px solid #eee; height: 55px;">
-            <td style="padding: 10px; font-weight: bold; color: #555;">${item.codigo || '---'}</td>
-            <td style="padding: 10px; font-size: 13px;">
-                <span style="display: block; font-weight: 500;">${nomeExibicao}</span>
+        <tr style="border-bottom: 1px solid #eee; height: 55px; transition: background 0.2s;" onmouseover="this.style.background='#fdfbf7'" onmouseout="this.style.background='transparent'">
+            <td style="padding: 10px; font-weight: 700; color: #444; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.codigo || '---'}</td>
+            <td style="padding: 10px; font-size: 13px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${nomeExibicao}">
+                <span style="font-weight: 500;">${nomeExibicao}</span>
             </td>
             <td style="padding: 10px; text-align: center;">
-                <input type="number" 
-                    value="${valorAtual}" 
-                    id="stk_${item.id}" 
-                    style="width: 65px; padding: 8px; text-align: center; border: 1px solid #ccc; border-radius: 6px; font-weight: bold; background: #fffcf5;">
+                <div style="display: inline-flex; align-items: center; gap: 4px;">
+                    <input type="number" 
+                        value="${valorAtual}" 
+                        id="stk_${item.id}" 
+                        style="width: 55px; padding: 6px; text-align: center; border: 1px solid #ccc; border-radius: 6px; font-weight: bold; background: #fffcf5; font-size: 13px; box-sizing: border-box;">
+                    <button onclick="updateQuickStock(${item.id}, this)" 
+                        style="background: #D4AF37; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11px; transition: all 0.2s;">
+                        OK
+                    </button>
+                </div>
             </td>
             <td style="padding: 10px; text-align: center;">
-                <button onclick="updateQuickStock(${item.id})" 
-                    style="background: #D4AF37; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                    OK
-                </button>
+                <div style="display: inline-flex; gap: 6px;">
+                    <button onclick="abrirModalEdicaoProduto(${item.id})" 
+                        style="background: #007bff; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: background 0.2s;" title="Editar Peça" onmouseover="this.style.background='#0069d9'" onmouseout="this.style.background='#007bff'">
+                        ✏️
+                    </button>
+                    <button onclick="excluirProduto(${item.id}, '${item.codigo}')" 
+                        style="background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: background 0.2s;" title="Excluir Peça" onmouseover="this.style.background='#c82333'" onmouseout="this.style.background='#dc3545'">
+                        🗑️
+                    </button>
+                </div>
             </td>
         </tr>
         `;
     }).join('');
 }
 
-// 3. Salva a alteração individual
-async function updateQuickStock(id) {
+// =========================================================================
+// 3. SALVAR ATUALIZAÇÃO RÁPIDA DE ESTOQUE (Coluna Qtd + Botão OK)
+// =========================================================================
+async function updateQuickStock(id, btn) {
     const input = document.getElementById(`stk_${id}`);
-    if (!input) return;
+    if (!input || !btn) return;
 
-    const novoValor = parseInt(input.value);
-    const btn = event.target; // Pega o botão que foi clicado
+    const novoValor = parseInt(input.value) || 0;
 
-    // Feedback visual de carregando
+    // Feedback visual imediato de "Carregando"
     const originalText = btn.innerText;
+    const originalBg = btn.style.background;
     btn.innerText = "...";
     btn.disabled = true;
 
     try {
-        // AJUSTE: 'quantidade' é o nome da coluna no seu Supabase
         const { error } = await supabaseClient
             .from('estoque')
             .update({ quantidade: novoValor })
@@ -1692,25 +1748,214 @@ async function updateQuickStock(id) {
 
         if (error) throw error;
 
-        // Feedback de sucesso
+        // Feedback visual de sucesso
         btn.innerText = "✅";
         btn.style.background = "#28a745";
 
         setTimeout(() => {
-            btn.innerText = "OK";
-            btn.style.background = "#D4AF37";
+            btn.innerText = originalText;
+            btn.style.background = originalBg;
             btn.disabled = false;
-        }, 2000);
+        }, 1500);
 
     } catch (err) {
-        console.error("Erro ao salvar estoque:", err);
-        alert("Erro ao salvar: " + err.message);
-        btn.innerText = "Erro";
+        console.error("Erro ao salvar estoque rápido:", err);
+        alert("Erro ao salvar estoque: " + err.message);
+        btn.innerText = "❌";
         btn.style.background = "#dc3545";
-        btn.disabled = false;
+
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.background = originalBg;
+            btn.disabled = false;
+        }, 2000);
     }
 }
 
+// =========================================================================
+// 4. ABRIR MODAL DE EDIÇÃO COMPLETA (Segura contra IDs duplicados e quebra de DOM)
+// =========================================================================
+async function abrirModalEdicaoProduto(id) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('estoque')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        if (!data) return alert("Produto não encontrado.");
+
+        console.log("Mapeando dados para os inputs:", data);
+
+        // 1. Primeiro exibe o modal para renderizar os elementos no DOM
+        const modal = document.getElementById('modalEdicao');
+        if (modal) modal.style.display = 'flex';
+
+        // 2. Executa o preenchimento com um atraso de milissegundos para o navegador processar
+        setTimeout(() => {
+            // Seletor inteligente buscando especificamente dentro do container do modal de edição
+            const container = document.querySelector('#modalEdicao');
+            if (!container) return;
+
+            // Preenche o ID
+            const inputId = container.querySelector('#edit_id');
+            if (inputId) inputId.value = data.id;
+
+            // Preenche o Código (Forçado via atributo e value)
+            const inputCodigo = container.querySelector('#edit_codigo');
+            if (inputCodigo) {
+                const codigoTratado = data.codigo !== undefined && data.codigo !== null ? String(data.codigo).trim() : '';
+                inputCodigo.value = codigoTratado;
+                inputCodigo.setAttribute('value', codigoTratado); // Força gravação no HTML bruto
+            }
+
+            // Preenche o Nome
+            const inputNome = container.querySelector('#edit_nome');
+            if (inputNome) inputNome.value = data.nome || '';
+
+            // Seleciona o Banho no Dropdown
+            const selectBanho = container.querySelector('#edit_banho');
+            if (selectBanho) {
+                const valorBanho = data.banho ? String(data.banho).toUpperCase().trim() : '';
+                selectBanho.value = valorBanho;
+
+                // Backup de segurança: se o valor não bater com as options, força a seleção
+                for (let i = 0; i < selectBanho.options.length; i++) {
+                    if (selectBanho.options[i].value === valorBanho) {
+                        selectBanho.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            // Preenche a Imagem
+            const inputImg = container.querySelector('#edit_img');
+            if (inputImg) inputImg.value = data.imagem_url || '';
+
+        }, 50); // 50 milissegundos são imperceptíveis, mas salvam o ciclo do DOM
+
+    } catch (err) {
+        console.error("Erro ao carregar dados do produto:", err);
+        alert("Erro ao abrir edição: " + err.message);
+    }
+}
+
+// =========================================================================
+// 5. SALVAR EDIÇÃO DOS CAMPOS (Com Loading e Atualização Automatizada)
+// =========================================================================
+async function salvarEdicaoProduto() {
+    // Localiza o container do modal para buscar os inputs corretos dentro dele
+    const container = document.querySelector('#modalEdicao');
+    if (!container) return;
+
+    const id = container.querySelector('#edit_id').value;
+    if (!id) {
+        alert("Erro: ID do produto não encontrado.");
+        return;
+    }
+
+    // Pega o botão de salvar para fazer o efeito de Loading
+    // Buscamos pelo atributo onclick para garantir que é o botão certo
+    const btnSalvar = container.querySelector('button[onclick="salvarEdicaoProduto()"]');
+    let textoOriginal = "Salvar";
+
+    if (btnSalvar) {
+        textoOriginal = btnSalvar.innerText;
+        btnSalvar.innerText = "? Salvando...";
+        btnSalvar.disabled = true;
+        btnSalvar.style.opacity = "0.7";
+    }
+
+    // Captura os valores de forma segura de dentro do modal
+    const updates = {
+        codigo: container.querySelector('#edit_codigo').value.trim(),
+        nome: container.querySelector('#edit_nome').value.trim(),
+        banho: container.querySelector('#edit_banho').value,
+        imagem_url: container.querySelector('#edit_img').value.trim()
+    };
+
+    try {
+        const { error } = await supabaseClient
+            .from('estoque')
+            .update(updates)
+            .eq('id', id);
+
+        if (error) throw error;
+
+        // Sucesso: Restaura o botão (opcional, já que vai fechar, mas bom por garantia)
+        if (btnSalvar) {
+            btnSalvar.innerText = "? Sucesso!";
+            btnSalvar.style.background = "#28a745";
+        }
+
+        // Aguarda 500ms para o usuário ver o feedback de sucesso, fecha o modal e recarrega
+        setTimeout(() => {
+            // Fecha o modal de edição
+            container.style.display = 'none';
+
+            // Reseta o estilo do botão para a próxima vez que abrir
+            if (btnSalvar) {
+                btnSalvar.innerText = textoOriginal;
+                btnSalvar.disabled = false;
+                btnSalvar.style.opacity = "1";
+                btnSalvar.style.background = "#28a745";
+            }
+
+            // Recarrega a listagem de produtos da conferência em tempo real por baixo
+            openInventoryConference();
+        }, 600);
+
+    } catch (err) {
+        console.error("Erro ao salvar produto:", err);
+        alert("Erro ao salvar edições: " + err.message);
+
+        // Restaura o botão em caso de erro para o usuário tentar de novo
+        if (btnSalvar) {
+            btnSalvar.innerText = textoOriginal;
+            btnSalvar.disabled = false;
+            btnSalvar.style.opacity = "1";
+        }
+    }
+}
+
+// =========================================================================
+// 6. EXCLUIR PRODUTO (Com verificação nativa ultra rápida de movimentação)
+// =========================================================================
+async function excluirProduto(id, codigo) {
+    if (!codigo) return;
+    if (!confirm(`⚠️ Atenção: Tem certeza absoluta que deseja excluir permanentemente o produto de REF: ${codigo}?`)) return;
+
+    try {
+        // Validação correta e performática usando o HEAD exact do Supabase
+        const { count, error: errCheck } = await supabaseClient
+            .from('personalizados')
+            .select('*', { count: 'exact', head: true })
+            .eq('codigo', codigo);
+
+        if (errCheck) throw errCheck;
+
+        if (count && count > 0) {
+            alert(`❌ Ação Bloqueada: O produto com a REF "${codigo}" possui ${count} pedido(s) registrado(s) no sistema e não pode ser deletado por segurança.`);
+            return;
+        }
+
+        // Caso livre de movimentações, deleta do estoque
+        const { error: errDel } = await supabaseClient
+            .from('estoque')
+            .delete()
+            .eq('id', id);
+
+        if (errDel) throw errDel;
+
+        // Atualiza a tabela na hora
+        openInventoryConference();
+
+    } catch (err) {
+        console.error("Erro ao excluir produto:", err);
+        alert("Erro ao processar exclusão: " + err.message);
+    }
+}
 // Abre o modal para novo produto
 // Função para abrir o modal de produto
 window.openNewProductModal = function () {

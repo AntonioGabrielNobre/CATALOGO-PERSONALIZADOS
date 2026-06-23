@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Madean Joias - Sistema</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="Styles.css">
 </head>
 
@@ -207,8 +208,8 @@
                     </div>
 
                     <button onclick="openNewProductModal()"
-                        style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                        + NOVO PRODUTO ESTOQUE
+                        style="background: #28a745; color: white; height: 45px; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                        + NOVO PRODUTO
                     </button>
 
                     <button onclick="applyFilters()"
@@ -218,12 +219,17 @@
 
                     <button onclick="openInventoryConference()"
                         style="background: #D4AF37; color: white; height: 45px; border-radius: 8px; cursor: pointer; font-weight: bold; border: none;">
-                        📋 Conferência Estoque
+                        📋 Ajustes Produtos
+                    </button>
+
+                    <button onclick="exportarParaExcel()"
+                        style="background: #007bff; color: white; height: 45px; border-radius: 8px; cursor: pointer; font-weight: bold; border: none;">
+                        📊 Exportar Excel
                     </button>
 
                     <button id="btnNovoManual" onclick="openOrderManual()"
-                        style="background: #a47c48; color: white; height: 45px; border-radius: 8px; cursor: pointer; display: none; width: 100%; font-weight: bold; border: none;">
-                        ➕ Novo Pedido Manual
+                        style="display: none; width: 100%; height: 45px; background: #a47c48; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-align: center; padding: 0 15px; box-sizing: border-box;">
+                         Novo Pedido Manual
                     </button>
                 </div>
 
@@ -260,9 +266,6 @@
                         🔗 Gerar Link para Loja
                     </button>
                 </div>
-                <div id="ordersList" class="catalog-grid"></div>
-
-                <h3>Gerenciar Pedidos</h3>
                 <div id="ordersList" class="catalog-grid"></div>
             </div>
 
@@ -361,26 +364,112 @@
         </div>
     </div>
 
-    <div id="modalConferenciaEstoque" class="modal" style="display: none;">
-        <div class="modal-content"
-            style="max-width: 800px; width: 95%; background: white; padding: 20px; border-radius: 12px;">
-            <span class="close-modal" onclick="fecharModalConferencia()"
-                style="float: right; cursor: pointer; font-size: 28px;">&times;</span>
-            <h2 style="margin-bottom: 20px;">📋 Conferência de Estoque</h2>
+    <div id="modalConferenciaEstoque"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 9998; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;">
 
-            <div style="max-height: 70vh; overflow-y: auto;">
-                <table style="width: 100%; border-collapse: collapse;">
+        <div
+            style="background: white; padding: 24px; border-radius: 16px; width: 100%; max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); box-sizing: border-box;">
+
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f4f4f4; padding-bottom: 12px;">
+                <h2
+                    style="margin: 0; font-size: 1.3rem; font-weight: 700; color: #333; display: flex; align-items: center; gap: 8px;">
+                    📋 Ajustes Produtos
+                </h2>
+                <span class="close-modal" onclick="fecharModalConferencia()"
+                    style="cursor: pointer; font-size: 28px; color: #999; transition: color 0.2s; line-height: 1;"
+                    onmouseover="this.style.color='#333'" onmouseout="this.style.color='#999'">&times;</span>
+            </div>
+
+            <div style="overflow-y: auto; flex: 1; border-radius: 8px; border: 1px solid #eee; background: #fff;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed;">
                     <thead>
-                        <tr style="background: #eee;">
-                            <th style="padding: 10px; text-align: left;">REF</th>
-                            <th style="padding: 10px; text-align: left;">Produto</th>
-                            <th style="padding: 10px; text-align: center;">Qtd</th>
-                            <th style="padding: 10px; text-align: center;">Salvar</th>
+                        <tr
+                            style="background: #f8f9fa; border-bottom: 2px solid #eee; position: sticky; top: 0; z-index: 10;">
+                            <th
+                                style="padding: 12px 10px; font-size: 0.8rem; font-weight: 700; color: #666; text-transform: uppercase; width: 25%;">
+                                REF</th>
+                            <th
+                                style="padding: 12px 10px; font-size: 0.8rem; font-weight: 700; color: #666; text-transform: uppercase; width: 40%;">
+                                Produto</th>
+                            <th
+                                style="padding: 12px 10px; font-size: 0.8rem; font-weight: 700; color: #666; text-transform: uppercase; width: 18%; text-align: center;">
+                                Qtd</th>
+                            <th
+                                style="padding: 12px 10px; font-size: 0.8rem; font-weight: 700; color: #666; text-transform: uppercase; width: 17%; text-align: center;">
+                                Ações</th>
                         </tr>
                     </thead>
                     <tbody id="corpoTabelaConferencia">
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalEdicao"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 9999; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;">
+
+        <div
+            style="background: white; padding: 24px; border-radius: 16px; width: 100%; max-width: 420px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2); box-sizing: border-box; animation: fadeIn 0.2s ease-out;">
+
+            <h3
+                style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; font-weight: 700; color: #333; border-bottom: 2px solid #f4f4f4; padding-bottom: 12px;">
+                ✏️ Editar Produto
+            </h3>
+
+            <input type="hidden" id="edit_id">
+
+            <div style="margin-bottom: 12px;">
+                <label
+                    style="display: block; font-size: 0.8rem; font-weight: 600; color: #505050; margin-bottom: 5px;">Código
+                    / Referência</label>
+                <input type="text" id="edit_codigo"
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: #fff;">
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label
+                    style="display: block; font-size: 0.8rem; font-weight: 600; color: #505050; margin-bottom: 5px;">Nome
+                    da Peça</label>
+                <input type="text" id="edit_nome"
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label
+                    style="display: block; font-size: 0.8rem; font-weight: 600; color: #505050; margin-bottom: 5px;">Banho</label>
+                <select id="edit_banho"
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white; font-weight: 500;">
+                    <option value="">Selecione o banho...</option>
+                    <option value="OURO">OURO</option>
+                    <option value="PRATA">PRATA</option>
+                    <option value="GRAFITE">GRAFITE</option>
+                    <option value="RÓDIO">RÓDIO</option>
+                    <option value="AÇO">AÇO</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <label
+                    style="display: block; font-size: 0.8rem; font-weight: 600; color: #505050; margin-bottom: 5px;">Link
+                    da Imagem (URL)</label>
+                <input type="text" id="edit_img" placeholder="https://..."
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+                <button onclick="salvarEdicaoProduto()"
+                    style="flex: 1; background: #28a745; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s;"
+                    onmouseover="this.style.background='#218838'" onmouseout="this.style.background='#28a745'">
+                    Salvar
+                </button>
+                <button onclick="document.getElementById('modalEdicao').style.display='none'"
+                    style="flex: 1; background: #eaeaea; color: #444; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s;"
+                    onmouseover="this.style.background='#dc3545', this.style.color='white'"
+                    onmouseout="this.style.background='#eaeaea', this.style.color='#444'">
+                    Cancelar
+                </button>
             </div>
         </div>
     </div>
